@@ -1,0 +1,19 @@
+Category,Coral,Echinoderm,Mollusc,Crustacean,Type
+Mating Behavior,0,0,0,0,Positive
+Fertilization,0,3,3,0,Positive
+Gametogenesis,1,0,0,0,Positive
+Resource Allocation,0,0,1,1,Positive
+Reproductive Timing and Synchronization,0,0,0,0,Positive
+Sex Determination,0,0,1,0,Positive
+Mating Behavior,0,0,1,0,Neutral
+Fertilization,10,13,8,0,Neutral
+Gametogenesis,4,11,4,2,Neutral
+Resource Allocation,4,1,0,13,Neutral
+Reproductive Timing and Synchronization,0,0,1,0,Neutral
+Sex Determination,0,0,2,0,Neutral
+Mating Behavior,0,0,1,1,Negative
+Fertilization,7,26,19,7,Negative
+Gametogenesis,0,11,6,0,Negative
+Resource Allocation,0,3,1,18,Negative
+Reproductive Timing and Synchronization,0,1,1,0,Negative
+Sex Determination,0,0,1,0,Negative
