@@ -11,6 +11,7 @@ In this script, I will create a figure that summarizes the findings from studies
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/yaaminivenkataraman/Documents/paper-oa-reproduction-review/metadata/2-metadata/") #Set root directory
 ```
 
 # Install packages
