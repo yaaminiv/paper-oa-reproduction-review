@@ -9,7 +9,7 @@ Sexual reproduction is a fundamental process essential for species persistence, 
 ## Supplementary Material
 
 - Supplementary Text: Extended review of ocean acidification impacts on marine invertebrate reproduction
-- Supplementary Table 1: Table of ocean acidification and reproduction studies cited in this review
+- [Supplementary Table 1](https://github.com/yaaminiv/paper-oa-reproduction-review/blob/main/metadata/Studies-Cited.docx): Table of ocean acidification and reproduction studies cited in this review
   - [Supplementary Table 1a](https://github.com/yaaminiv/paper-oa-reproduction-review/blob/main/metadata/Location-Data.csv): Location information for studies cited in this review, used to generate Figure 2
   - [Supplementary Table 1b](https://github.com/yaaminiv/paper-oa-reproduction-review/blob/main/metadata/Year-Published.csv): Year published for studies cited in this review, used to generate Figure 2
   - [Supplementary Table 1c](https://github.com/yaaminiv/paper-oa-reproduction-review/blob/main/metadata/Reproduction-Category.csv): Reproduction category information for studies cited in this review, used to generate Figure 2
