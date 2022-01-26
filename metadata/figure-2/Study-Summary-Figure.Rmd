@@ -97,7 +97,7 @@ head(reproductionCatMetadata) #Confirm formatting
 ```{r}
 #Group dataframe by taxa, category, and effect, count the number of studies in each group, pivot the dataframe so taxa are columns, replace NA with 0, then rearrange rows based on category
 
-findingSummary<- reproductionCatMetadata %>%
+findingSummary <- reproductionCatMetadata %>%
   group_by(., taxa, category, effect) %>%
   summarise(count = n()) %>%
   pivot_wider(., names_from = taxa, values_from = count) %>%
@@ -185,12 +185,32 @@ mtext(side = 3, " Fertilization", adj = 0, line = -1, cex = 1.5) #Add category n
 
 # Year published
 
-## Import and format data
+## Format data
 
 ```{r}
-yearPublished <- read.csv("Year-Published.csv", header = TRUE) #Import data
-yearPublished <- yearPublished[-1,] #Remove 1924 data
-head(yearPublished) #Confirm import
+yearMetadata <- allMetadata %>% select(., taxa, year) #Keep columns necessary for reproduction category
+head(yearMetadata) #Confirm formatting
+```
+
+```{r}
+#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by year, then add cumulative sums for each taxa and save as another column
+
+yearPublished <- yearMetadata %>%
+  group_by(., taxa, year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(., names_from = taxa, values_from = count) %>%
+  replace(is.na(.), 0) %>%
+  arrange(., year) %>%
+  mutate(., 
+         totCnidarian = cumsum(cnidarian),
+         totCrustacean = cumsum(crustacean),
+         totEchinoderm = cumsum(echinoderm),
+         totMollusc = cumsum(mollusc))
+head(yearPublished) #Confirm formatting
+```
+
+```{r}
+write.csv(yearPublished, "../Year-Published.csv", quote = FALSE, row.names = FALSE) #Save dataframe
 ```
 
 ## Create color scheme
