@@ -232,7 +232,7 @@ lines(yearPublished$totCrustacean, col = dichromat(yearColors[4]), lwd = 3)
 #pdf("Year-Published-Summary-Line-Plots.pdf", height = 4.25, width = 11)
 par(mar = c(5, 6, 3, 1), oma = c(0, 1, 0, 0)) #Change margins
 
-plot(yearPublished$totCnidarian[-1], type = "l", ylim = c(0,100),
+plot(yearPublished$totCnidarian, type = "l", ylim = c(0,100),
      col = yearColors[1], lwd = 3,
      xaxt = "n", yaxt = "n",
      xlab = "", ylab = "",
@@ -259,7 +259,7 @@ box(col = "white")
 box(col = "white")
 box(col = "white")
 
-axis(side = 1, at = 1:17, labels = yearPublished$year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
+axis(side = 1, at = 1:16, labels = yearPublished$year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
 
 axis(side = 2, at = seq(0, 100, 10), labels = seq(0, 100, 10), las = 2, col = "grey80", cex.axis = 2) #Add y-axis with paper count information
 mtext("Cumulative Publications", side = 2, line = 4.5, cex = 2) #Add a y-axis label
