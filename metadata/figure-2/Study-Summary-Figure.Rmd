@@ -11,7 +11,7 @@ In this script, I will create a figure that summarizes the findings from studies
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/Users/yaaminivenkataraman/Documents/paper-oa-reproduction-review/metadata/2-metadata/") #Set root directory
+knitr::opts_knit$set(root.dir = "/Users/yaaminivenkataraman/Documents/paper-oa-reproduction-review/metadata/figure-2/") #Set root directory
 ```
 
 # Install packages
@@ -20,7 +20,7 @@ knitr::opts_knit$set(root.dir = "/Users/yaaminivenkataraman/Documents/paper-oa-r
 #Install packages
 #install.packages("RColorBrewer") #Create color palettes
 #install.packages("dichromat") #Color-blind simulation
-#install.packages("dplyr") #Data manipulation
+#install.packages("tidyverse") #Data manipulation
 #install.packages("reshape2") #Melt and cast data frames
 #install.packages("ggplot2") #Plotting
 #install.packages("scatterpie") #Pie chart map
@@ -30,7 +30,7 @@ knitr::opts_knit$set(root.dir = "/Users/yaaminivenkataraman/Documents/paper-oa-r
 #Load packages
 require(RColorBrewer)
 require(dichromat)
-require(dplyr)
+require(tidyverse)
 require(reshape2)
 require(ggplot2)
 require(scatterpie)
@@ -42,14 +42,72 @@ require(scatterpie)
 sessionInfo()
 ```
 
-# Reproduction category
-
-## Import and format data
+# Import and format metadata
 
 ```{r}
-findingSummary <- read.csv("Reproduction-Category.csv") #Import data
-findingSummary <- findingSummary[,c(1, 2, 5, 3, 4, 6)]
-head(findingSummary) #Confirm import
+cnidarianMetadata <- read.csv("../cnidarians_metadata.csv", header = TRUE) #Import cnidarian metadata
+cnidarianMetadata <- cnidarianMetadata %>% 
+  select(., Reproductive.Stage, Effect..Y.N.., Year, Collection.Location..Marine.Ecoregion) %>% 
+  rename(., category = Reproductive.Stage, effect = Effect..Y.N.., year = Year, collectionLocation = Collection.Location..Marine.Ecoregion) %>% 
+  mutate(taxa = rep("cnidarian", times = length(year))) #Subset necessary columns, change column names, and add new column
+head(cnidarianMetadata) #Confirm formatting
+```
+
+```{r}
+crustaceanMetadata <- read.csv("../crustaceans_metadata.csv", header = TRUE) #Import crustacean metadata
+crustaceanMetadata <- crustaceanMetadata %>% 
+  select(., Reproductive.Stage, Effect..Y.N.., Year, Collection.Location..Marine.Ecoregion) %>% 
+  rename(., category = Reproductive.Stage, effect = Effect..Y.N.., year = Year, collectionLocation = Collection.Location..Marine.Ecoregion) %>% 
+  mutate(taxa = rep("crustacean", times = length(year))) #Subset necessary columns, change column names, and add new column
+head(crustaceanMetadata) #Confirm formatting
+```
+
+```{r}
+echinodermMetadata <- read.csv("../echinoderms_metadata.csv", header = TRUE) #Import echinoderm metadata
+echinodermMetadata <- echinodermMetadata %>% 
+  select(., Reproductive.Stage, Effect..Y.N.., Year, Collection.Location..Marine.Ecoregion) %>% 
+  rename(., category = Reproductive.Stage, effect = Effect..Y.N.., year = Year, collectionLocation = Collection.Location..Marine.Ecoregion) %>% 
+  mutate(taxa = rep("echinoderm", times = length(year))) #Subset necessary columns, change column names, and add new column
+head(echinodermMetadata) #Confirm formatting
+```
+
+```{r}
+molluscMetadata <- read.csv("../molluscs_metadata.csv", header = TRUE) #Import mollusc metadata
+molluscMetadata <- molluscMetadata %>% 
+  select(., Reproductive.Stage, Effect..Y.N.., Year, Collection.Location..Marine.Ecoregion) %>% 
+  rename(., category = Reproductive.Stage, effect = Effect..Y.N.., year = Year, collectionLocation = Collection.Location..Marine.Ecoregion) %>% 
+  mutate(taxa = rep("mollusc", times = length(year))) #Subset necessary columns, change column names, and add new column
+head(molluscMetadata) #Confirm formatting
+```
+
+```{r}
+allMetadata <- rbind(cnidarianMetadata, crustaceanMetadata, echinodermMetadata, molluscMetadata) #Combine all metadata information
+head(allMetadata) #Confirm formatting
+```
+
+# Reproduction category
+
+## Format data
+
+```{r}
+reproductionCatMetadata <- allMetadata %>% select(., category, effect, taxa) #Keep columns necessary for reproduction category
+head(reproductionCatMetadata) #Confirm formatting
+```
+
+```{r}
+#Group dataframe by taxa, category, and effect, count the number of studies in each group, pivot the dataframe so taxa are columns, replace NA with 0, then rearrange rows based on category
+
+findingSummary<- reproductionCatMetadata %>%
+  group_by(., taxa, category, effect) %>%
+  summarise(count = n()) %>%
+  pivot_wider(., names_from = taxa, values_from = count) %>%
+  replace(is.na(.), 0) %>%
+  arrange(., category)
+head(findingSummary) #Confirm formatting
+```
+
+```{r}
+write.csv(findingSummary, "../Reproduction-Category.csv", quote = FALSE, row.names = FALSE) #Save dataframe
 ```
 
 ```{r}
@@ -64,7 +122,7 @@ head(sexDetermination) #Examine one subset dataset
 ```
 
 ```{r}
-#Make type row namee, then remove category and type columns
+#Make type row name, then remove category and type columns
 rownames(matingBehavior) <- matingBehavior[,6]
 matingBehavior <- matingBehavior[,-c(1,6)]
 matingBehavior <- matingBehavior[c(3,2,1),]
@@ -95,7 +153,7 @@ head(matingBehavior) #Confirm changes
 ## Create color scheme
 
 ```{r}
-barplotColors <- c("grey90", "grey50", "grey10") #Create a red-blue palette with 3 colors to represent positive, neutral, and negative effects of ocean acidification on reproductive processes
+barplotColors <- c("grey90", "grey10") #Create a red-blue palette with 3 colors to represent positive, neutral, and negative effects of ocean acidification on reproductive processes
 barplot(t(t(sexDetermination)), col = barplotColors) #Examine color combinations. White is positive, grey is neutral, black is negative
 barplot(t(t(sexDetermination)), col = dichromat(barplotColors)) #Examine color combinations with simulated color-blindness.
 ```
@@ -172,7 +230,7 @@ mtext(side = 3, " Sex Determination", adj = 0, line = -1, cex = 1.5) #Add catego
 mtext(side = 3, expression(italic("  4 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 legend(x = 0.05, y = 2.8, 
-       legend = c("Positive", "Neutral", "Negative"), cex = 2.3,
+       legend = c("Effect", "No Effect"), cex = 2.3,
        pch = 22, pt.cex = 4.5,
         col = "black",
         pt.bg = rev(barplotColors),
