@@ -193,7 +193,7 @@ head(yearMetadata) #Confirm formatting
 ```
 
 ```{r}
-#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by year, then add cumulative sums for each taxa and save as another column
+#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by year, remove 1924, then add cumulative sums for each taxa and save as another column
 
 yearPublished <- yearMetadata %>%
   group_by(., taxa, year) %>%
@@ -201,6 +201,7 @@ yearPublished <- yearMetadata %>%
   pivot_wider(., names_from = taxa, values_from = count) %>%
   replace(is.na(.), 0) %>%
   arrange(., year) %>%
+  slice(., -1) %>%
   mutate(., 
          totCnidarian = cumsum(cnidarian),
          totCrustacean = cumsum(crustacean),
@@ -219,7 +220,7 @@ write.csv(yearPublished, "../Year-Published.csv", quote = FALSE, row.names = FAL
 yearColors <- RColorBrewer::brewer.pal(4, "RdBu") #Create a red-blue palette with 4 colors to represent each taxa
 
 #Add simulated color-blindness. Will need to change line type for addtional contrast
-plot(yearPublished$totCnidarian, type = "l", col = dichromat(yearColors[1]), ylim = c(0,45), lty = 4, lwd = 3)
+plot(yearPublished$totCnidarian, type = "l", col = dichromat(yearColors[1]), ylim = c(0,100), lty = 4, lwd = 3)
 lines(yearPublished$totEchinoderm, col = dichromat(yearColors[2]), lwd = 3)
 lines(yearPublished$totMollusc, col = dichromat(yearColors[3]), lty = 4, lwd = 3)
 lines(yearPublished$totCrustacean, col = dichromat(yearColors[4]), lwd = 3)
@@ -228,10 +229,10 @@ lines(yearPublished$totCrustacean, col = dichromat(yearColors[4]), lwd = 3)
 ## Create plot
 
 ```{r}
-pdf("Year-Published-Summary-Line-Plots.pdf", height = 4.25, width = 11)
+#pdf("Year-Published-Summary-Line-Plots.pdf", height = 4.25, width = 11)
 par(mar = c(5, 6, 3, 1), oma = c(0, 1, 0, 0)) #Change margins
 
-plot(yearPublished$totCnidarian, type = "l", ylim = c(0,45),
+plot(yearPublished$totCnidarian[-1], type = "l", ylim = c(0,100),
      col = yearColors[1], lwd = 3,
      xaxt = "n", yaxt = "n",
      xlab = "", ylab = "",
@@ -258,9 +259,9 @@ box(col = "white")
 box(col = "white")
 box(col = "white")
 
-axis(side = 1, at = 1:17, labels = yearPublished$Year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
+axis(side = 1, at = 1:17, labels = yearPublished$year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
 
-axis(side = 2, at = seq(0, 40, 10), labels = seq(0, 40, 10), las = 2, col = "grey80", cex.axis = 2) #Add y-axis with paper count information
+axis(side = 2, at = seq(0, 100, 10), labels = seq(0, 100, 10), las = 2, col = "grey80", cex.axis = 2) #Add y-axis with paper count information
 mtext("Cumulative Publications", side = 2, line = 4.5, cex = 2) #Add a y-axis label
 
 legend("topleft",
@@ -270,7 +271,7 @@ legend("topleft",
        col = yearColors,
        bty = "n")
 
-dev.off()
+#dev.off()
 ```
 
 # Location conducted
