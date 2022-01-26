@@ -110,124 +110,26 @@ head(findingSummary) #Confirm formatting
 write.csv(findingSummary, "../Reproduction-Category.csv", quote = FALSE, row.names = FALSE) #Save dataframe
 ```
 
-```{r}
-#Create data subsets for each reproduction category
-matingBehavior <- subset(findingSummary, subset = findingSummary$Category == "Mating Behavior")
-fertilization <- subset(findingSummary, subset = findingSummary$Category == "Fertilization")
-gametogenesis <- subset(findingSummary, subset = findingSummary$Category == "Gametogenesis")
-resourceAllocation <- subset(findingSummary, subset = findingSummary$Category == "Resource Allocation")
-timing <- subset(findingSummary, subset = findingSummary$Category == "Reproductive Timing and Synchronization")
-sexDetermination <- subset(findingSummary, subset = findingSummary$Category == "Sex Determination")
-head(sexDetermination) #Examine one subset dataset
-```
-
-```{r}
-#Make type row name, then remove category and type columns
-rownames(matingBehavior) <- matingBehavior[,6]
-matingBehavior <- matingBehavior[,-c(1,6)]
-matingBehavior <- matingBehavior[c(3,2,1),]
-
-rownames(fertilization) <- fertilization[,6]
-fertilization <- fertilization[,-c(1,6)]
-fertilization <- fertilization[c(3,2,1),]
-
-rownames(gametogenesis) <- gametogenesis[,6]
-gametogenesis <- gametogenesis[,-c(1,6)]
-gametogenesis <- gametogenesis[c(3,2,1),]
-
-rownames(resourceAllocation) <- resourceAllocation[,6]
-resourceAllocation <- resourceAllocation[,-c(1,6)]
-resourceAllocation <- resourceAllocation[c(3,2,1),]
-
-rownames(timing) <- timing[,6]
-timing <- timing[,-c(1,6)]
-timing <- timing[c(3,2,1),]
-
-rownames(sexDetermination) <- sexDetermination[,6]
-sexDetermination <- sexDetermination[,-c(1,6)]
-sexDetermination <- sexDetermination[c(3,2,1),]
-
-head(matingBehavior) #Confirm changes
-```
-
 ## Create color scheme
 
 ```{r}
-barplotColors <- c("grey90", "grey10") #Create a red-blue palette with 3 colors to represent positive, neutral, and negative effects of ocean acidification on reproductive processes
-barplot(t(t(sexDetermination)), col = barplotColors) #Examine color combinations. White is positive, grey is neutral, black is negative
-barplot(t(t(sexDetermination)), col = dichromat(barplotColors)) #Examine color combinations with simulated color-blindness.
-```
-
-## Create individual plots
-
-```{r}
-barplot(t(t(sexDetermination)), 
-        axes = FALSE,
-        cex.names = 1.5,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,4), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
-```
-
-```{r}
-barplot(t(t(gametogenesis)), 
-        axes = FALSE, 
-        cex.names = 1.5,
-        space = 0.1,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,22), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
-```
-
-```{r}
-barplot(t(t(resourceAllocation)), 
-        axes = FALSE,
-        cex.names = 1.5,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,32), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
-```
-
-```{r}
-barplot(t(t(timing)), 
-        axes = FALSE, 
-        cex.names = 1.5,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,2), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
-```
-
-```{r}
-barplot(t(t(matingBehavior)), 
-        axes = FALSE, 
-        cex.names = 1.5,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,2), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
-```
-
-```{r}
-barplot(t(t(fertilization)), 
-        axes = FALSE, 
-        cex.names = 1.5,
-        col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,42), las = 2, col = "grey80", cex = 1.2) #Add y-axis
-mtext(side = 2, "Number of Findings", line = 2, cex = 1.5) #Add y-axis label
+barplotColors <- c("grey90", "grey10") #Create a BW palette with 2 colors to represent effect and no effect of OA on reproductive processes
 ```
 
 ## Create multipanel plot
 
 ```{r}
-pdf("Reproduction-Category-Summary-Barplots.pdf", height = 8.5, width = 11)
-par(mfrow = c(3,2), oma = c(1, 5, 2, 0), mar = c(3, 3, 0, 0))
+#pdf("Reproduction-Category-Summary-Barplots.pdf", height = 8.5, width = 11)
+par(mfrow = c(3,2), oma = c(0, 5, 2, 0), mar = c(5, 5, 0, 0))
 
-barplot(t(t(sexDetermination)), 
+#Sex determination
+barplot(t(t(findingSummary[9:10, 3:6])), 
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,4), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,5), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 2, "Number of Findings", line = 2, cex = 2, outer = TRUE) #Add outer y-axis label
 mtext(side = 3, " Sex Determination", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  4 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 legend(x = 0.05, y = 2.8, 
        legend = c("Effect", "No Effect"), cex = 2.3,
@@ -236,44 +138,49 @@ legend(x = 0.05, y = 2.8,
         pt.bg = rev(barplotColors),
        bty = "n") #Add legend
 
-barplot(t(t(gametogenesis)), 
+#Gametogenesis
+barplot(t(t(findingSummary[5:6, 3:6])), 
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,22), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,24), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Gametogenesis", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  40 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-barplot(t(t(resourceAllocation)), 
+#Fecundity
+barplot(t(t(findingSummary[1:2, 3:6])),  
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,32), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,40), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Fecundity", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  35 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-barplot(t(t(timing)), 
+#Timing
+barplot(t(t(findingSummary[11:12, 3:6])),  
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,2), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,4), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Timing", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  4 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-barplot(t(t(matingBehavior)), 
+#Mating behavior
+barplot(t(t(findingSummary[7:8, 3:6])),   
         axes = FALSE, 
         names.arg = c("N", "C", "E", "M"), cex.names = 2.5,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,2), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,1), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Mating", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  2 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-barplot(t(t(fertilization)), 
+#Fertilization
+barplot(t(t(findingSummary[3:4, 3:6])),
         axes = FALSE, 
         names.arg = c("N", "C", "E", "M"), cex.names = 2.5,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,42), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,66), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Fertilization", adj = 0, line = -1, cex = 1.5) #Add category name
-mtext(side = 3, expression(italic("  54 studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
+#mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-dev.off()
+#dev.off()
 ```
 
 # Year published
