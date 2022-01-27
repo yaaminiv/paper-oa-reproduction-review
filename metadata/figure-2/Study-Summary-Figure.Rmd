@@ -119,7 +119,7 @@ barplotColors <- c("grey90", "grey10") #Create a BW palette with 2 colors to rep
 ## Create multipanel plot
 
 ```{r}
-#pdf("Reproduction-Category-Summary-Barplots.pdf", height = 8.5, width = 11)
+pdf("Reproduction-Category-Summary-Barplots.pdf", height = 8.5, width = 11)
 par(mfrow = c(3,2), oma = c(0, 5, 2, 0), mar = c(5, 5, 0, 0))
 
 #Sex determination
@@ -131,7 +131,7 @@ mtext(side = 2, "Number of Findings", line = 2, cex = 2, outer = TRUE) #Add oute
 mtext(side = 3, " Sex Determination", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-legend(x = 0.05, y = 2.8, 
+legend(x = 0.05, y = 4, 
        legend = c("Effect", "No Effect"), cex = 2.3,
        pch = 22, pt.cex = 4.5,
         col = "black",
@@ -180,7 +180,7 @@ axis(side = 2, at = c(0,66), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
 mtext(side = 3, " Fertilization", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
-#dev.off()
+dev.off()
 ```
 
 # Year published
