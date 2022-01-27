@@ -1,37 +1,12 @@
-Location,Lat,Long,Taxa,Count
-Arctic,80,20,Cnidarian,0
-Arctic,80,20,Echinoderm,1
-Arctic,80,20,Mollusc,0
-Arctic,80,20,Crustacean,1
-Central Indo-Pacific,10,130,Cnidarian,8
-Central Indo-Pacific,10,130,Echinoderm,5
-Central Indo-Pacific,10,130,Mollusc,1
-Central Indo-Pacific,10,130,Crustacean,3
-Eastern Indo-Pacific,0,-180,Cnidarian,2
-Eastern Indo-Pacific,0,-180,Echinoderm,0
-Eastern Indo-Pacific,0,-180,Mollusc,0
-Eastern Indo-Pacific,0,-180,Crustacean,0
-Southern Ocean,-60,0,Cnidarian,0
-Southern Ocean,-60,0,Echinoderm,4
-Southern Ocean,-60,0,Mollusc,1
-Southern Ocean,-60,0,Crustacean,0
-Temperate Australasia,-50,150,Cnidarian,0
-Temperate Australasia,-50,150,Echinoderm,18
-Temperate Australasia,-50,150,Mollusc,10
-Temperate Australasia,-50,150,Crustacean,0
-Temperate Southern Africa,-40,20,Cnidarian,0
-Temperate Southern Africa,-40,20,Echinoderm,0
-Temperate Southern Africa,-40,20,Mollusc,1
-Temperate Southern Africa,-40,20,Crustacean,0
-Temperate Northern Atlantic,40,-40,Cnidarian,4
-Temperate Northern Atlantic,40,-40,Echinoderm,15
-Temperate Northern Atlantic,40,-40,Mollusc,15
-Temperate Northern Atlantic,40,-40,Crustacean,18
-Temperate Northern Pacific,40,-160,Cnidarian,10
-Temperate Northern Pacific,40,-160,Echinoderm,13
-Temperate Northern Pacific,40,-160,Mollusc,8
-Temperate Northern Pacific,40,-160,Crustacean,7
-Tropical Atlantic,0,-20,Cnidarian,3
-Tropical Atlantic,0,-20,Echinoderm,0
-Tropical Atlantic,0,-20,Mollusc,0
-Tropical Atlantic,0,-20,Crustacean,1
+collectionLocation,cnidarian,crustacean,echinoderm,mollusc,region,latitude,longitude
+Arctic,0,0,1,1,1,80,20
+Central Indo-Pacific,8,7,9,8,2,10,130
+Eastern Indo-Pacific,3,0,0,2,3,0,-180
+Southern Ocean,0,0,7,3,4,-60,0
+Temperate Australasia,0,0,23,19,5,-50,150
+Temperate Northern Atlantic,8,32,28,18,6,40,-40
+Temperate Northern Pacific,11,14,19,22,7,40,-160
+Temperate South America,0,0,0,1,8,-50,-55
+Temperate Southern Africa,0,0,0,1,9,-40,20
+Tropical Atlantic,3,1,4,1,10,0,-20
+Western Indo-Pacific,0,0,1,0,11,0,77

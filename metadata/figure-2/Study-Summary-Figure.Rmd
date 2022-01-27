@@ -276,24 +276,39 @@ legend("topleft",
 
 # Location conducted
 
-## Import and format data
+## Format data
 
 ```{r}
-locationData <- read.csv("Location-Data.csv", header = TRUE) #Import data
-tail(locationData) #Confirm import
+locationMetadata <- allMetadata %>% select(., taxa, collectionLocation) #Keep columns necessary for reproduction category
+head(locationMetadata) #Confirm formatting
 ```
 
 ```{r}
-locationData <- dcast(locationData, Location + Lat + Long ~ Taxa, value.var = "Count") #Reformat data such that all taxa counts are in separate columns
-locationData$Region <- seq(1:length(locationData$Location)) #Add numeric region information
-head(locationData) #Confirm reformatting
+#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by collection location, remove NA collection locations, add numeric region information, latitude, and longitude information
+
+locationData <- locationMetadata %>%
+  group_by(., taxa, collectionLocation) %>%
+  summarise(count = n()) %>%
+  pivot_wider(., names_from = taxa, values_from = count) %>%
+  replace(is.na(.), 0) %>%
+  arrange(., collectionLocation) %>%
+  filter(., collectionLocation != "N/A") %>%
+  mutate(., 
+         region = seq(1:length(locationData$collectionLocation)),
+         latitude = c(80, 10, 0, -60, -50, 40, 40, -50, -40, 0, 0),
+         longitude = c(20, 130, -180, 0, 150, -40, -160, -55, 20, -20, 77))
+head(locationData) #Confirm formatting
 ```
 
 ```{r}
-scatterpieData <- locationData[,c(3, 2, 8, 4, 6, 7, 5)] #Reorganize columns and subset data needed for pie chart
-scatterpieData$Region <- as.factor(scatterpieData$Region) #Make sure everything region is a factor
-scatterpieData$Radius <- ((rowSums(x = scatterpieData[,4:7]))/1.5) #Scale pie radius based on number of observations for each region, and divide by 2 so pies are not too large
-scatterpieData[which(between(scatterpieData$Radius, 0, 5)),8] <- 5 #Replace any non-zero radius less than 5 with 5 so the radius shows up
+write.csv(locationData, "../Location-Data.csv", quote = FALSE, row.names = FALSE) #Save dataframe as .csv
+```
+
+```{r}
+scatterpieData <- locationData[,c(8, 7, 6, 2, 4, 5, 3)] #Reorganize columns and subset data needed for pie chart
+scatterpieData$region <- as.factor(scatterpieData$region) #Make sure everything region is a factor
+scatterpieData$radius <- ((rowSums(x = scatterpieData[,4:7]))/3) #Scale pie radius based on number of observations for each region, and divide by 2 so pies are not too large
+scatterpieData[which(between(scatterpieData$radius, 0, 5)),8] <- 5 #Replace any non-zero radius less than 5 with 5 so the radius shows up
 head(scatterpieData) #Confirm subset
 ```
 
@@ -308,11 +323,11 @@ pieColors
 
 ```{r}
 #Create base plot to see what pies look like
-ggplot() + geom_scatterpie(aes(x = Long, y = Lat, group = Region, r = Radius), data = scatterpieData, cols = colnames(scatterpieData[,4:7]), alpha = 0.8) + coord_equal() + scale_fill_manual(values = pieColors[1:4])
+ggplot() + geom_scatterpie(aes(x = longitude, y = latitude, group = region, r = radius), data = scatterpieData, cols = colnames(scatterpieData[,4:7]), alpha = 0.8) + coord_equal() + scale_fill_manual(values = pieColors[1:4])
 ```
 
 ```{r}
-pdf("Location-Data-Map-Plot.pdf", height = 4.25, width = 11)
+#pdf("Location-Data-Map-Plot.pdf", height = 4.25, width = 11)
 
 world <- map_data('world') #Save worldwide map data
 
@@ -327,9 +342,9 @@ p <- ggplot(world, aes(long, lat)) + #Plot latitude and longitude of world data 
               legend.text = element_text(size = 15)) #Change legend text size
 
 p + #Plot the map object
-        geom_scatterpie(aes(x = Long, y = Lat, group = Region, r = Radius), data = scatterpieData, cols = colnames(scatterpieData[,4:7]), alpha = 0.8) + #Add pie charts on top with location data. Include legend labels
+        geom_scatterpie(aes(x = longitude, y = latitude, group = region, r = radius), data = scatterpieData, cols = colnames(scatterpieData[,4:7]), alpha = 0.8) + #Add pie charts on top with location data. Include legend labels
         scale_fill_manual(values = pieColors[1:4], name = "", ) #Specify legend and pie chart colors and legend title
 
-dev.off()
+#dev.off()
 ```
 
