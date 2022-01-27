@@ -1,12 +1,12 @@
 collectionLocation,cnidarian,crustacean,echinoderm,mollusc,region,latitude,longitude
 Arctic,0,0,1,1,1,80,20
-Central Indo-Pacific,8,7,9,8,2,10,130
-Eastern Indo-Pacific,3,0,0,2,3,0,-180
-Southern Ocean,0,0,7,3,4,-60,0
-Temperate Australasia,0,0,23,19,5,-50,150
-Temperate Northern Atlantic,8,32,28,18,6,40,-40
-Temperate Northern Pacific,11,14,19,22,7,40,-160
+Central Indo-Pacific,3,5,8,5,2,10,130
+Eastern Indo-Pacific,2,0,0,2,3,0,-180
+Southern Ocean,0,0,6,2,4,-60,0
+Temperate Australasia,0,0,14,12,5,-50,150
+Temperate Northern Atlantic,4,23,20,12,6,40,-40
+Temperate Northern Pacific,5,9,13,17,7,40,-160
 Temperate South America,0,0,0,1,8,-50,-55
 Temperate Southern Africa,0,0,0,1,9,-40,20
-Tropical Atlantic,3,1,4,1,10,0,-20
+Tropical Atlantic,2,1,4,1,10,0,-20
 Western Indo-Pacific,0,0,1,0,11,0,77
