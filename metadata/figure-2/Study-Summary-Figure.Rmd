@@ -357,4 +357,3 @@ p + #Plot the map object
 
 dev.off()
 ```
-
