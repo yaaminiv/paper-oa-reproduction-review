@@ -305,7 +305,8 @@ locationData <- locationMetadata %>%
   mutate(., 
          region = seq(1:11),
          latitude = c(80, 10, 0, -60, -50, 40, 40, -50, -40, 0, 0),
-         longitude = c(20, 130, -180, 0, 150, -40, -160, -55, 20, -20, 77))
+         longitude = c(20, 130, -180, 0, 150, -40, -160, -55, 20, -20, 77),
+         totalStudies = rowSums(locationData[,2:5]))
 head(locationData) #Confirm formatting
 ```
 
