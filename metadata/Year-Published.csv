@@ -1,5 +1,7 @@
 year,cnidarian,crustacean,echinoderm,mollusc,totCnidarian,totCrustacean,totEchinoderm,totMollusc
 2004,0,1,1,0,0,1,1,0
+2005,0,0,0,0,0,1,1,0
+2006,0,0,0,0,0,1,1,0
 2007,1,1,1,0,1,2,2,0
 2008,1,2,2,0,2,4,4,0
 2009,0,3,1,2,2,7,5,2
@@ -13,5 +15,5 @@ year,cnidarian,crustacean,echinoderm,mollusc,totCnidarian,totCrustacean,totEchin
 2017,1,2,4,9,11,30,48,28
 2018,0,4,7,3,11,34,55,31
 2019,2,3,6,10,13,37,61,41
-2020,2,1,4,5,15,38,65,46
-2021,1,0,2,8,16,38,67,54
+2020,2,1,4,4,15,38,65,45
+2021,1,0,2,7,16,38,67,52
