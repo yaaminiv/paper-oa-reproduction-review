@@ -111,7 +111,10 @@ write.csv(findingSummary, "../Reproduction-Category.csv", quote = FALSE, row.nam
 ## Create color scheme
 
 ```{r}
-barplotColors <- c("grey90", "grey10") #Create a BW palette with 2 colors to represent effect and no effect of OA on reproductive processes
+barplotColors <- c("grey90", "grey30") #Create a BW palette with 2 colors to represent effect and no effect of OA on reproductive processes
+barplot(t(t(findingSummary[9:10, 3:6])), ylim = c(0,5),
+        axes = FALSE, axisnames = FALSE,
+        col = barplotColors)
 ```
 
 ## Create multipanel plot
@@ -121,10 +124,10 @@ pdf("Reproduction-Category-Summary-Barplots.pdf", height = 8.5, width = 11)
 par(mfrow = c(3,2), oma = c(0, 5, 2, 0), mar = c(5, 5, 0, 0))
 
 #Sex determination
-barplot(t(t(findingSummary[9:10, 3:6])), 
+barplot(t(t(findingSummary[9:10, 3:6])), ylim = c(0,5),
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,5), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,1,3,5), labels = c(0,1,3,5), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 2, "Number of Findings", line = 2, cex = 2, outer = TRUE) #Add outer y-axis label
 mtext(side = 3, " Sex Determination", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
@@ -137,10 +140,10 @@ legend(x = 0.05, y = 4,
        bty = "n") #Add legend
 
 #Gametogenesis
-barplot(t(t(findingSummary[5:6, 3:6])), 
+barplot(t(t(findingSummary[5:6, 3:6])), ylim = c(0,25),
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,24), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,5,15,25), labels = c(0,5,15,25), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 3, " Gametogenesis", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
@@ -148,33 +151,33 @@ mtext(side = 3, " Gametogenesis", adj = 0, line = -1, cex = 1.5) #Add category n
 barplot(t(t(findingSummary[1:2, 3:6])),  
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,40), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,10,20,40), labels = c(0,10,20,40), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 3, " Fecundity", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 #Timing
-barplot(t(t(findingSummary[11:12, 3:6])),  
+barplot(t(t(findingSummary[11:12, 3:6])), ylim = c(0,5), 
         axes = FALSE, axisnames = FALSE,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,4), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,1,3,5), labels = c(0,1,3,5), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 3, " Timing", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 #Mating behavior
-barplot(t(t(findingSummary[7:8, 3:6])),   
+barplot(t(t(findingSummary[7:8, 3:6])), ylim = c(0,5),   
         axes = FALSE, 
         names.arg = c("N", "C", "E", "M"), cex.names = 2.5,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,1), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,1,3,5), labels = c(0,1,3,5), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 3, " Mating", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 #Fertilization
-barplot(t(t(findingSummary[3:4, 3:6])),
+barplot(t(t(findingSummary[3:4, 3:6])), ylim = c(0,70),
         axes = FALSE, 
         names.arg = c("N", "C", "E", "M"), cex.names = 2.5,
         col = barplotColors) #Create a stacked barplot using colors in barplotColors. Do not plot any axes and increase font size of x-axis labels
-axis(side = 2, at = c(0,66), las = 2, col = "grey80", cex.axis = 3) #Add y-axis
+axis(side = 2, at = c(0,10,40,70), labels = c(0,10,40,70), las = 2, col = "grey80", cex.axis = 2.5) #Add y-axis
 mtext(side = 3, " Fertilization", adj = 0, line = -1, cex = 1.5) #Add category name
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
@@ -194,7 +197,7 @@ head(yearMetadata) #Confirm formatting
 ```
 
 ```{r}
-#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by year, remove 1924, then add cumulative sums for each taxa and save as another column
+#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by year, remove 1924, add blank rows for 2005/2006, reorganize by year, then add cumulative sums for each taxa and save as another column
 
 yearPublished <- yearMetadata %>%
   group_by(., taxa, year) %>%
@@ -203,6 +206,8 @@ yearPublished <- yearMetadata %>%
   replace(is.na(.), 0) %>%
   arrange(., year) %>%
   slice(., -1) %>%
+  add_row(year = 2005, cnidarian = 0, crustacean = 0, echinoderm = 0, mollusc = 0, .after = 1) %>%
+  add_row(year = 2006, cnidarian = 0, crustacean = 0, echinoderm = 0, mollusc = 0, .after = 2) %>%
   mutate(., 
          totCnidarian = cumsum(cnidarian),
          totCrustacean = cumsum(crustacean),
@@ -230,7 +235,7 @@ lines(yearPublished$totCrustacean, col = dichromat(yearColors[4]), lwd = 3)
 ## Create plot
 
 ```{r}
-#pdf("Year-Published-Summary-Line-Plots.pdf", height = 4.25, width = 11)
+pdf("Year-Published-Summary-Line-Plots.pdf", height = 4.25, width = 11)
 par(mar = c(5, 6, 3, 1), oma = c(0, 1, 0, 0)) #Change margins
 
 plot(yearPublished$totCnidarian, type = "l", ylim = c(0,70),
@@ -260,7 +265,7 @@ box(col = "white")
 box(col = "white")
 box(col = "white")
 
-axis(side = 1, at = 1:16, labels = yearPublished$year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
+axis(side = 1, at = 1:18, labels = yearPublished$year, las = 2, col = "grey80", cex.axis = 2) #Add an x-axis with year information
 
 axis(side = 2, at = seq(0, 70, 10), labels = seq(0, 70, 10), las = 2, col = "grey80", cex.axis = 2) #Add y-axis with paper count information
 mtext("Cumulative Publications", side = 2, line = 4.5, cex = 2) #Add a y-axis label
@@ -272,7 +277,7 @@ legend("topleft",
        col = yearColors,
        bty = "n")
 
-#dev.off()
+dev.off()
 ```
 
 # Location conducted
