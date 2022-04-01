@@ -293,7 +293,7 @@ head(locationMetadata) #Confirm formatting
 ```
 
 ```{r}
-#Group yearMetadata by taxa and year, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by collection location, remove NA collection locations, add numeric region information, latitude, and longitude information
+#Group locationMetadata by taxa and collectionLocation, count studies per taxa/year, make taxa columns, replace NA with 0, reorganize by collection location, remove NA collection locations, add numeric region information, latitude, and longitude information
 
 locationData <- locationMetadata %>%
   group_by(., taxa, collectionLocation) %>%
