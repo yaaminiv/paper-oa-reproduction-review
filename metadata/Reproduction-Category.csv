@@ -1,13 +1,13 @@
 category,effect,cnidarian,crustacean,echinoderm,mollusc
-Fecundity and reproductive output,N,5,10,0,2
-Fecundity and reproductive output,Y,1,30,3,5
-Fertilization,N,10,0,24,9
-Fertilization,Y,10,0,42,29
+Fecundity and reproductive output,N,5,10,0,1
+Fecundity and reproductive output,Y,1,30,2,7
+Fertilization,N,10,0,24,8
+Fertilization,Y,10,0,42,31
 Gametogenesis and gamete quality,N,4,3,11,8
-Gametogenesis and gamete quality,Y,2,5,13,10
+Gametogenesis and gamete quality,Y,2,5,13,11
 Mating behavior,N,0,0,0,1
 Mating Behavior,Y,0,1,0,0
-Sex determination, differentiation, and ratio,Y,0,1,0,2
-Sex determination, differentiation, and ratio,N,0,0,0,3
+Sex determination, differentiation, and ratio,Y,0,1,0,3
+Sex determination, differentiation, and ratio,N,0,0,0,2
 Timing of reproduction and synchronization,Y,1,3,1,2
 Timing of reproduction and synchronization,N,0,1,0,2
