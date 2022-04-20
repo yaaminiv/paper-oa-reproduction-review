@@ -133,7 +133,7 @@ mtext(side = 3, " Sex Determination", adj = 0, line = -1, cex = 1.5) #Add catego
 #mtext(side = 3, expression(italic("  ? studies")), adj = 0, line = -3, cex = 1.2) #Add total studies
 
 legend(x = 0.05, y = 4, 
-       legend = c("Effect", "No Effect"), cex = 2.3,
+       legend = c("No Effect", "Effect"), cex = 2.3,
        pch = 22, pt.cex = 4.5,
         col = "black",
         pt.bg = rev(barplotColors),
