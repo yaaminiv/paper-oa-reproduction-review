@@ -37,14 +37,14 @@ data.fert <- data.fert %>%
   na_if("NR") %>%     
   clean_names()   %>% # fill in spaces with underscores for column names 
   mutate_at(c('phylum', 'study', 'taxonomic_group', 'common_name', 'latin_name', 'error_statistic'), as.factor) %>%
-  mutate_at(c('p_h_experimental', 'p_h_control', 'p_co2_experimental', 'p_co2_control', 'ave_fert_percent_p_h', 'error_percent_p_h', 'number_trials_p_h', 'insemination_time', 'sperm_per_m_l', 'sperm_egg_ratio', 'number_females', 'number_males'), as.numeric) %>%
+  mutate_at(c('p_h_experimental', 'p_h_control', 'p_co2_experimental', 'p_co2_control', 'ave_fert_percent_p_h', 'error_percent_p_h', 'number_trials_p_h', 'incubation_time', 'sperm_per_m_l', 'sperm_egg_ratio', 'number_females', 'number_males'), as.numeric) %>%
   mutate(H_experimental=10^(-1*p_h_experimental), 
                      H_control=10^(-1*p_h_control))
 
 
 #data.fert %>% select(study, ave_fert_percent_p_h, error_percent_p_h, error_statistic, number_trials_p_h) %>% View()
 
-ggplotly(ggplot(data.fert %>% drop_na(phylum)) + geom_violin(aes(x=phylum, y=insemination_time, color=phylum)) + geom_jitter(aes(x=phylum, y=insemination_time, color=phylum, label=study)))
+ggplotly(ggplot(data.fert %>% drop_na(phylum)) + geom_violin(aes(x=phylum, y=incubation_time, color=phylum)) + geom_jitter(aes(x=phylum, y=incubation_time, color=phylum, label=study)))
 ```
 
 ### Explore data with figures 
@@ -144,6 +144,9 @@ data.fert %>%
   distinct(phylum, study, taxonomic_group) %>%
   group_by(taxonomic_group) %>% count()
 ```
+neg: 12
+pos
+neut: 123
 
 ### Calculate weights for models 
 
@@ -155,33 +158,71 @@ weights <- metafor::escalc(measure='MN',
 data.fert$w <-weights$vi
 ```
 
+##  Remove all Crustacean studies, since they do not capture fertilization (all captuer hatch rate)
+
+```{r}
+data.fert <- data.fert %>% filter(phylum!="Crustacean")
+```
+
+## Remove data from treatments with metal contamination & cocaine
+```{r}
+# Remove metal contamination
+data.fert <- subset(data.fert, !(what_is_2nd_stressor=="Metal Contamination" & data.fert$secondary_stressor=="yes"))
+data.fert <- subset(data.fert, !(what_is_2nd_stressor=="Elevated Temperature + Lead (Pb)" & data.fert$secondary_stressor=="yes"))
+
+# Remove cocaine 
+data.fert <- subset(data.fert, !(what_is_2nd_stressor=="Cocaine Byproduct" & data.fert$secondary_stressor=="yes"))
+```
+
+##  Remove experimental pH values that exceed ambient 
+
+```{r}
+data.fert <- data.fert %>% filter(pH_delta<=0)
+```
+
+
+```{r}
+# How many studies reported sperm concentratinos? 
+data.fert %>%
+  filter(!is.na(sperm_per_m_l)) %>% 
+  distinct(phylum, study) %>%
+  group_by(phylum) %>% count()
+
+
+# How many studies tested multiple sperm concentrations? 
+data.fert %>%
+  filter(!is.na(sperm_per_m_l)) %>% 
+  distinct(phylum, latin_name, study, sperm_per_m_l) %>% View()
+# 5 studies
+
+
+```
+
 ### How many studies per phylum after filtering out those w/o weight calculation? 
 
 ```{r}
 # Before dropping studies w/o weight calcs
 data.fert %>% 
-  select(phylum, study) %>%
+  dplyr::select(phylum, study) %>%
   distinct(phylum, study) %>%
   group_by(phylum) %>% count()
+7+36+27
 
 # After dropping studies (final data set for meta-analysis)
 data.fert %>% drop_na(w) %>%
-  select(phylum, study) %>%
+  dplyr::select(phylum, study) %>%
   distinct(phylum, study) %>%
   group_by(phylum) %>% count()
-```
-
-## Optional, but suggested change, as of Feb. 04, 2021 - remove all crustaceans 
-
-Remove all Crustacean studies, since they do not capture fertilization (all captuer hatch rate)
-```{r}
-data.fert <- data.fert %>% filter(phylum!="Crustacean")
+6+35+23
 ```
 
 ## INSPECT DATA 
 
 ```{r}
-#View(data.fert)
+as.factor(data.fert$what_is_2nd_stressor) %>% levels()
+
+# What is the pH range? 
+data.fert$p_h_experimental %>% summary()
 ```
 
 ### Generate binomial models  
@@ -190,99 +231,369 @@ data.fert <- data.fert %>% filter(phylum!="Crustacean")
  - Include varying combinations of phylum & experimental pH  
  - Decided NOT to include taxa, since so few studies per group  
 
-## Test all candidate covariates alone - are any significant? Answer: only experimental pH 
+## Test all candidate covariates alone - are any significant?
+
+## ON MARCH 11 I REPLACE `binomial(link = "logit")` WITH `beta_family(link="logit")`
 
 ```{r}
 # All data 
-Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ p_h_experimental + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ phylum + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ insemination_time + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_per_m_l + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_egg_ratio + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-```
+summary((drop_na(data.fert, w))$ave_fert_proport)
+hist((drop_na(data.fert, w))$ave_fert_proport)
 
-## Test all candidate covariates with delta pH - are any significant? Answer: only delta pH (diff between control and experimental low pH) 
+# To use beta model I can't have 0- or 1-inflated data. So, replace instances of 0% fertilization with 0.001%, and 100% with 99.999%
+data.fert <- data.fert %>%
+  mutate_at("ave_fert_proport", function(x) {
+    case_when(
+      x == 0 ~ 0.00001,
+      x == 1 ~ 0.99999,
+      x>0 & x<1 ~ x)})
+
+# Test all candidate predictor variables
+
+# pH alone 
+Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #YES
+Anova(glmmTMB(ave_fert_proport ~ p_h_experimental + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #YES
+
+Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ phylum + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ taxonomic_group + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ incubation_time + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #YES
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+```
+pH_delta, pH_experimental, and sperm_per_m_l are all significant as sole predictor variables 
+
+## Test all candidate covariates with delta pH - are any significant? 
 
 ```{r}
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*p_h_control + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*p_h_control + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*insemination_time + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #Tends to 
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*phylum + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*sperm_per_m_l + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*sperm_egg_ratio + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #pH DELTA NOW SIGN. 
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*number_females + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ pH_delta*number_males + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*p_h_control + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*phylum + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #yes interaction effect 
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*taxonomic_group + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*incubation_time + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no 
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no interaction, but sperm conc. still sign. 
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*number_females + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*number_males + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
 ```
+Significant interactions:  
+- pH_delta:phylum                 9.6779  2   0.007915 ** 
+- pH_delta:log(sperm_per_m_l)     3.2569  1    0.07112 .  <-- not sign. interaction, but sperm concentration still sign.
+
+## examine main and interaction effects for phylum*pH_delta for all data, and data >7.6
+
+```{r}
+Anova(glmmTMB(ave_fert_proport ~ phylum*pH_delta + (1|study), 
+                              data=drop_na(data.fert, w), 
+                              beta_family(link="logit"), 
+                              na.action=na.exclude, weights = 1/(w+1)^2))
+
+Anova(glmmTMB(ave_fert_proport ~ phylum*pH_delta + (1|study), 
+                              data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), 
+                              beta_family(link="logit"), 
+                              na.action=na.exclude, weights = 1/(w+1)^2))
+```
+
+## examine main and interaction effects for phylum*log(sperm_per_m_l) for all data, and data >7.6
+
+```{r}
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_per_m_l) + (1|study), 
+                              data=drop_na(data.fert, w), 
+                              beta_family(link="logit"), 
+                              na.action=na.exclude, weights = 1/(w+1)^2))
+
+Anova(glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_per_m_l) + (1|study), 
+                              data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), 
+                              beta_family(link="logit"), 
+                              na.action=na.exclude, weights = 1/(w+1)^2))
+```
+
+### Identify best model by ANCOVA, with phylum, pH_delta, and log(sperm_per_ml) as candidate covariates
+
+```{r}
+# Identify best model using lowest AIC
+
+# covariates individually 
+m1 <- glmmTMB(ave_fert_proport ~ pH_delta  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m2 <- glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m3<- glmmTMB(ave_fert_proport ~ phylum  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+# pH_delta with phylum
+m4<- glmmTMB(ave_fert_proport ~ pH_delta*phylum  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m5<- glmmTMB(ave_fert_proport ~ pH_delta:phylum  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6<- glmmTMB(ave_fert_proport ~ pH_delta + phylum  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6.1<- glmmTMB(ave_fert_proport ~ phylum + phylum:pH_delta  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6.2<- glmmTMB(ave_fert_proport ~ pH_delta + phylum:pH_delta  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+# pH_delta with log(sperm_per-mL)
+m7<- glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_per_m_l)  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m8<- glmmTMB(ave_fert_proport ~ pH_delta:log(sperm_per_m_l)  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m9<- glmmTMB(ave_fert_proport ~ pH_delta+log(sperm_per_m_l)  + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+# All three predictor variables with all interaction
+m10 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+# All three predictor variables, with only some interactions 
+m11 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m12 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m13 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) - pH_delta:phylum:log(sperm_per_m_l) + 
+                      (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m14 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) - pH_delta:phylum:log(sperm_per_m_l) - 
+                      phylum + (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m15 <- glmmTMB(ave_fert_proport ~ pH_delta + log(sperm_per_m_l) + (1|study), 
+                    data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+```
+
+# Identify and save best fit model (called "best") to object
+
+```{r}
+AIC(m1, m2, m3, m4, m5, m6, m6.1, m6.2, m7, m8, m9, m10, m11, m12, m13, m14, m15) %>% arrange(AIC) #lowest AIC = m5,m6.2
+
+BIC(m5, m4, m6, m1, m6.1, m6.2) %>% arrange(BIC) # Lowet BIC = m5, m6.2
+
+summary(m5)$AICtab["logLik"]
+summary(m6.2)$AICtab["logLik"]
+summary(m4)$AICtab["logLik"] # <- highest logLik (but barely)
+
+summary(m6.2)$AICtab["deviance"]
+summary(m5)$AICtab["deviance"]
+summary(m4)$AICtab["deviance"] # <- lowest deviance (but barely)
+
+# Models 5 and 6.2 are equal, and Model 4 is 2nd and because I also want to examine effect of pH as a sole predictor (across taxa) as well as the include a separate intercept for phylum, so I will go with model 4 (fert ~ phylum*pH_delta) 
+
+View(data.fert)
+```
+
+```{r}
+# All data 
+car::Anova(best <- glmmTMB(ave_fert_proport ~ phylum + phylum:pH_delta  + (1|study), 
+                           data=drop_na(data.fert, w), beta_family(link="logit"), 
+                           na.action=na.exclude, weights = 1/(w+1)^2))
+summary(best) #sign. effect of delta pH
+
+# Out of curiosity, what would the equation for each phylum be if I constructed separate models? 
+# "Cnidarian"
+# Intercept = 0.8060, slope = 2.1697, not sign.
+summary(glmmTMB(ave_fert_proport ~ pH_delta  + (1|study), 
+                           data=drop_na(data.fert %>% filter(phylum=="Cnidarian"), w), beta_family(link="logit"), 
+                           na.action=na.exclude, weights = 1/(w+1)^2))
+# "Echinoderm" 
+# Intercept = 1.1142, slope = 1.7916, sign.
+summary(glmmTMB(ave_fert_proport ~ pH_delta  + (1|study), 
+                           data=drop_na(data.fert %>% filter(phylum=="Echinoderm"), w), beta_family(link="logit"), 
+                           na.action=na.exclude, weights = 1/(w+1)^2))
+# "Mollusc" 
+# Intercept = 1.6495, slope = 0.4047, not sign.
+summary(glmmTMB(ave_fert_proport ~ pH_delta  + (1|study), 
+                           data=drop_na(data.fert %>% filter(phylum=="Mollusc"), w), beta_family(link="logit"), 
+                           na.action=na.exclude, weights = 1/(w+1)^2))
+
+#format(1.714e-06, scientific = F, digits = 3)
+```
+## Plot effects
+
+```{r}
+#install.packages("effects")
+library(effects)
+effects_ok <- (requireNamespace("effects") && getRversion() >= "3.6.0")
+if (effects_ok) {
+(ae <- allEffects(best))
+plot(ae)
+}
+```
+
+```{r}
+Anova(m2)
+# Identify best model using lowest AIC and R^2 value
+m1 <- glmmTMB(ave_fert_proport ~ pH_delta  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m2 <- glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m3<- glmmTMB(ave_fert_proport ~ phylum  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+m4<- glmmTMB(ave_fert_proport ~ pH_delta*phylum  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m5<- glmmTMB(ave_fert_proport ~ pH_delta:phylum  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6<- glmmTMB(ave_fert_proport ~ pH_delta + phylum  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6.1<- glmmTMB(ave_fert_proport ~ phylum + phylum:pH_delta  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m6.2<- glmmTMB(ave_fert_proport ~ pH_delta + phylum:pH_delta  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+m7<- glmmTMB(ave_fert_proport ~ pH_delta*log(sperm_per_m_l)  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m8<- glmmTMB(ave_fert_proport ~ pH_delta:log(sperm_per_m_l)  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m9<- glmmTMB(ave_fert_proport ~ pH_delta+log(sperm_per_m_l)  + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+
+m10 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m11 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m12 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m13 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) - pH_delta:phylum:log(sperm_per_m_l) + 
+                      (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m14 <- glmmTMB(ave_fert_proport ~ pH_delta*phylum*log(sperm_per_m_l) - pH_delta:phylum - pH_delta:log(sperm_per_m_l) - pH_delta:phylum:log(sperm_per_m_l) - 
+                      phylum + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+m15 <- glmmTMB(ave_fert_proport ~ pH_delta + log(sperm_per_m_l) + (1|study), 
+                    data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)
+```
+
+# Identify and save best fit model (called "best") to object
+
+```{r}
+AIC(m1, m2, m3, m4, m5, m6, m6.1, m6.2, m7, m8, m9, m10, m11, m12, m13, m14, m15) %>% arrange(AIC) #lowest AIC = m1,m6.2, m5
+
+BIC(m1, m2, m3, m4, m5, m6, m6.1, m6.2, m7, m8, m9, m10, m11, m12, m13, m14, m15) %>% arrange(BIC) # Lowet BIC = m1, m3, m6.2
+
+summary(m1)$AICtab["logLik"]
+summary(m6.2)$AICtab["logLik"] # <- highest logLik (but barely)
+summary(m5)$AICtab["logLik"] # <- highest logLik (but barely)
+summary(m3)$AICtab["logLik"] 
+
+summary(m6.2)$AICtab["deviance"]
+summary(m5)$AICtab["deviance"]
+summary(m4)$AICtab["deviance"] # <- lowest deviance (but barely)
+
+# Models 1 now has the lowest AIC and BIC 
+
+Anova(m1)
+8-0.315
+```
+
+
+```{r}
+Anova(best7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), 
+                              data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), 
+                              beta_family(link="logit"), 
+                              na.action=na.exclude, weights = 1/(w+1)^2)) 
+
+summary(best7.6)
+```
+
+
 ## Test model using [H+] instead of pH 
 [H+] converted to ppm 
+Yes, interaction in model still significant (although less significant)
 
 ```{r}
-Anova(glmmTMB(ave_fert_proport ~ I(H_experimental*1000000) + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2))
+Anova(glmmTMB(ave_fert_proport ~ phylum + phylum:I(H_experimental*1000000) + 
+                (1|study), data=drop_na(data.fert, w), beta_family(link="logit"), 
+              na.action=na.exclude, weights = 1/(w+1)^2))
 ```
 
-### Save best fit model (called "best") to object, and examine (experimental pH as sole predictor) 
+## Here I extract best model intercepts and slopes 
 
 ```{r}
-# All data 
-car::Anova(best <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #phylum, pH, & phylum:pH sign. factors 
+library(broom)
+(best.coef <- tidy(best)) %>% mutate(estimate=round(estimate, digits = 2))
+(best7.6.coef <- tidy(best7.6))
+```
 
-# Now test and save model w/ only studies run at pH 7.6 and greater 
-car::Anova(best7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #phylum, pH, & phylum:pH sign. factors 
+```{r}
+0.92+0.24
+0.92+0.21
+```
 
-summary(best) #sign. effect of delta pH
-summary(best7.6) #delta pH no longer sign. 
+
+```{r}
+summary(best)
 ```
 
 ### Write a function to predict %fertilization at various delta levels (and specifying the model) 
 
 ```{r}
-predict.fert <- function(pH, model) {
-    linear.predictor <- as.vector((summary(best)$coefficients$cond[,"Estimate"]["(Intercept)"] + 
-                           summary(best)$coefficients$cond[,"Estimate"]["pH_delta"]*pH))
+#"Cnidarian"
+predict.fert.cnid <- function(pH, model) {
+    linear.predictor <- as.vector((
+      summary(model)$coefficients$cond[,"Estimate"]["(Intercept)"] + 
+        summary(model)$coefficients$cond[,"Estimate"]["phylumCnidarian:pH_delta"]*pH))
     predicted <- exp(linear.predictor) / (1+exp(linear.predictor))
-    return(paste("Fertilization rate predicted for pH ", pH, ": ", 
-                 scales::percent(x=predicted, accuracy = .01), sep=""))
-} 
-
-# Estimate % fertilization @ delta pH=0 using hand-typed equation 
-#exp(2.2831 + 2.2476*-.5) / (1 + exp(2.2831 + 2.2476*-.5)) 
-
-# now use function 
-predict.fert(0, best)
-predict.fert(-.1, best)
-predict.fert(-.25, best)
-predict.fert(-.3, best)
-predict.fert(-.4, best)
-predict.fert(-0.5, best)
-predict.fert(-0.75, best)
-predict.fert(-1, best)
-
-
-# predict values from model using only pH values >=7
-predict.fert.7.6 <- function(pH, model) {
-    linear.predictor <- as.vector((summary(best7.6)$coefficients$cond[,"Estimate"]["(Intercept)"] + 
-                           summary(best7.6)$coefficients$cond[,"Estimate"]["pH_delta"]*pH))
+    print(predicted)
+    #scales::percent(x=predicted, accuracy = .01)
+}
+# Echinoderm
+predict.fert.echin <- function(pH, model) {
+    linear.predictor <- as.vector((summary(model)$coefficients$cond[,"Estimate"]["(Intercept)"] + 
+                                     summary(model)$coefficients$cond[,"Estimate"]["phylumEchinoderm"] + 
+                           summary(model)$coefficients$cond[,"Estimate"]["phylumEchinoderm:pH_delta"]*pH))
     predicted <- exp(linear.predictor) / (1+exp(linear.predictor))
-    return(paste("Fertilization rate predicted for pH ", pH, ": ", 
-                 scales::percent(x=predicted, accuracy = .01), sep=""))
-} 
+    print(predicted)
+    #scales::percent(x=predicted, accuracy = .01)
+}
+# Mollusc
+predict.fert.moll <- function(pH, model) {
+    linear.predictor <- as.vector((summary(model)$coefficients$cond[,"Estimate"]["(Intercept)"] + 
+                                     summary(model)$coefficients$cond[,"Estimate"]["phylumMollusc"] + 
+                           summary(model)$coefficients$cond[,"Estimate"]["phylumMollusc:pH_delta"]*pH))
+    predicted <- exp(linear.predictor) / (1+exp(linear.predictor))
+    print(predicted)
+    #scales::percent(x=predicted, accuracy = .01)
+}
 
-# now use function 
-predict.fert(0, best7.6)
-predict.fert(-.1, best7.6)
-predict.fert(-.2, best7.6)
-predict.fert(-0.3, best7.6)
-predict.fert(-0.35, best7.6)
-predict.fert(-0.4, best7.6)
-predict.fert(-0.45, best7.6)
-predict.fert(-0.5, best7.6)
-predict.fert(-0.55, best7.6)
-predict.fert(-0.6, best7.6)
 
+# Estimate % fertilization @ various delta pH using hand-typed equation (to double check equation)
+# Cnidarians
+exp(0.92 + 2.43*0) / (1 + exp(0.92 + 2.43*0)) #@ delta-pH = 0 
+exp(0.92 + 2.43*-0.25) / (1 + exp(0.92 + 2.43*-0.2)) #@ delta-pH = -0.25 
+exp(0.92 + 2.43*-0.5) / (1 + exp(0.92 + 2.43*-0.3)) #@ delta-pH = -0.5%
+
+# Echinoderms
+exp(1.16 + 1.92*0) / (1 + exp(1.16 + 1.92*0)) #@ delta-pH = 0 
+exp(1.16 + 1.92*-0.25) / (1 + exp(1.16 + 1.92*-0.2)) #@ delta-pH = -0.25 
+exp(1.16 + 1.92*-0.5) / (1 + exp(1.16 + 1.92*-0.3)) #@ delta-pH = -0.5%
+
+
+# predictions <- data.frame(matrix(ncol=4,nrow=0, dimnames=list(NULL, c("pH", "cnid.predict", "echin.predict", "moll.predict"))))
+# x <- seq(from=-1, to=0, by=0.05)
+# for (i in 1:length(x)) {
+#   predictions[i,1] <- x[i]
+#   predictions[i,2] <- predict.fert.cnid(x[i], best)
+#   predictions[i,3] <- predict.fert.echin(x[i], best)
+#   predictions[i,4] <- predict.fert.moll(x[i], best)
+# }
+# predictions %>% View()
+
+predictions.RCP <- data.frame(matrix(ncol=4,nrow=0, dimnames=list(NULL, c("pH", "cnid.predict", "echino.predict", "moll.predict"))))
+x <- c(-0.065, -0.145, -0.203, -0.31)
+for (i in 1:length(x)) {
+  predictions.RCP[i,1] <- x[i]
+  predictions.RCP[i,2] <- round(predict.fert.cnid(x[i], best) - predict.fert.cnid(0, best), digits = 3)*100
+  predictions.RCP[i,3] <- round(predict.fert.echin(x[i], best) - predict.fert.echin(0, best), digits = 3)*100
+  predictions.RCP[i,4] <- round(predict.fert.moll(x[i], best) - predict.fert.moll(0, best), digits = 3)*100
+}
+
+# When the 7.6 model split up each phylum 
+# # predict values from model using only pH values >=7.6
+# predictions.RCP.7.6 <- data.frame(matrix(ncol=4,nrow=0, dimnames=list(NULL, c("pH", "cnid.predict", "echino.predict", "moll.predict"))))
+# x <- c(-0.065, -0.145, -0.205, -0.315)
+# for (i in 1:length(x)) {
+#   predictions.RCP.7.6[i,1] <- x[i]
+#   predictions.RCP.7.6[i,2] <- round(predict.fert.cnid(x[i], best7.6) - predict.fert.cnid(0, best7.6), digits = 3)*100
+#   predictions.RCP.7.6[i,3] <- round(predict.fert.echin(x[i], best7.6) - predict.fert.echin(0, best7.6), digits = 3)*100
+#   predictions.RCP.7.6[i,4] <- round(predict.fert.moll(x[i], best7.6) - predict.fert.moll(0, best7.6), digits = 3)*100
+# }
+# predictions.RCP.7.6 %>% View()
 ```
 
 ### Generate estimates & confidence intervals (log likelihood)
@@ -313,33 +624,39 @@ ggplot(aa5.7.6, aes(x=.fitted,y=.resid)) +
 ### Generate model predictions and plot against real data 
 
 ```{r}
-# For all data 
+## For all data 
+# First find min and max pH tested per phylum 
 ph.min.max <- drop_na(data.fert, w) %>%
-  select(phylum, pH_delta) %>%
+  dplyr::select(phylum, pH_delta) %>%
   group_by(phylum) %>%
   summarize(min=min(pH_delta, na.rm=TRUE), max=max(pH_delta, na.rm=TRUE))
 
+
+# Now generate range of pH levels for each phylum
 phylum.list <- list()
 for (i in 1:nrow(ph.min.max)) {
   phylum.list[[i]] <- data.frame(ph=c(seq(from=as.numeric(ph.min.max[i,"min"]), 
                             to=as.numeric(ph.min.max[i,"max"]), 
-                            by=0.01)),
-                   phylum=rep(c(ph.min.max[i,"phylum"])))
+                            by=0.005)),
+                   phylum=rep(c(ph.min.max[i,"phylum"]))) %>%
+  mutate(ph = as.numeric(formatC(ph, format = "f", digits = 3))) 
 }
 
-new.data <- bind_rows(phylum.list) %>% purrr::set_names(c("pH_delta", "phylum"))
+# Combine range of new pH levels and add study and weight columns each with all NA values 
+new.data <- bind_rows(phylum.list) %>% purrr::set_names(c("pH_delta", "phylum")) 
 new.data$study <- NA 
 new.data$w <- NA 
 
-predict.test.df <- predict(best, newdata = new.data, se.fit = TRUE, type="response")
-predict.test.df.df <- predict.test.df %>%
-  as.data.frame() %>%
-  cbind(new.data)
+# Now predict change in fertilization rate for each phylum using our best fit model 
+predict.test.df <- predict(best, newdata = new.data, se.fit = T, type="response", re.form = NA)
+predict.test.df.df <- predict.test.df %>% as.data.frame() %>%
+  cbind(new.data) 
+``` 
 
-
+```{r}
 # Do it again for model fit against data >7.6 
 ph.min.max.7.6 <- subset(drop_na(data.fert, w), p_h_experimental>=7.6) %>% 
-  select(phylum, pH_delta) %>% 
+  dplyr::select(phylum, pH_delta) %>% 
   group_by(phylum) %>% 
   summarize(min=min(pH_delta, na.rm=TRUE), max=max(pH_delta, na.rm=TRUE))
 
@@ -347,121 +664,161 @@ phylum.list.7.6 <- list()
 for (i in 1:nrow(ph.min.max.7.6)) {
   phylum.list.7.6[[i]] <- data.frame(ph=c(seq(from=as.numeric(ph.min.max.7.6[i,"min"]), 
                             to=as.numeric(ph.min.max.7.6[i,"max"]), 
-                            by=0.01)),
-                   phylum=rep(c(ph.min.max.7.6[i,"phylum"])))
+                            by=0.001)),
+                   phylum=rep(c(ph.min.max.7.6[i,"phylum"])))%>%
+  mutate(ph = as.numeric(formatC(ph, format = "f", digits = 5))) 
 }
-
 new.data.7.6 <- bind_rows(phylum.list.7.6) %>% purrr::set_names(c("pH_delta", "phylum"))
 new.data.7.6$study <- NA 
 new.data.7.6$w <- NA 
 
-predict.test.df.7.6 <- predict(best7.6, newdata = new.data.7.6, se.fit = TRUE, type="response")
-predict.test.df.df.7.6 <- predict.test.df.7.6 %>%
-  as.data.frame() %>%
-  cbind(new.data.7.6)
-
+predict.test.df.7.6 <- predict(best7.6, newdata = new.data.7.6, se.fit = T, type="response")
+predict.test.df.df.7.6 <- predict.test.df.7.6 %>% as.data.frame() %>%
+  cbind(new.data.7.6) 
 #scales::show_col(c("#e41a1c","#4daf4a","#ff7f00","#984ea3",'#377eb8'))
+
+predict.test.df.df.7.6 %>% filter(pH_delta%in% c(-0.065, -0.145, -0.203, -0.31)) %>% 
+  dplyr::select(-phylum) %>% distinct() %>% arrange(pH_delta) %>% 
+  mutate((delta=(predict.test.df.df.7.6 %>% filter(pH_delta==0))$fit[1]-fit)*100)
+```
+
+## Double check that my hand calculated predictions for RCP match those predicted using the `predict` function 
+
+```{r}
+predict.test.df.df %>% filter(pH_delta == 0)
+# Ambient pH predictions 
+# Cnidarian:  0.7142389 
+# Echinoderm: 0.7599396
+# Mollusc:    0.7557047
+
+predict.test.df.df %>% 
+  mutate(pH_delta = formatC(pH_delta, format = "f", digits = 3)) %>% 
+  filter(pH_delta %in% predictions.RCP$pH) %>% filter(phylum=="Mollusc") %>% dplyr::select(fit)
+
+# pH_delta    Cnidarian:        Echinoderm:       Mollusck:
+# ~0            0.7142389       0.7599396         0.7557047
+# -0.315                        0.6357550         0.7372109
+# -0.205        0.6050407				0.6831409         0.7438751
+# -0.145				0.6395422       0.7075419         0.7474631
+# -0.065        0.6833471       0.7382934         0.7521950
+
+predict.test.df.df %>% 
+  #mutate(pH_delta = formatC(pH_delta, format = "f", digits = 3)) %>% 
+  filter(pH_delta %in% predictions.RCP$pH) %>% filter(phylum=="Cnidarian") %>% dplyr::select(pH_delta,fit) %>% 
+  mutate(delta_cnid=round(100*(fit-0.7152239), digits = 1))
+
+predict.test.df.df %>% 
+  #mutate(pH_delta = formatC(pH_delta, format = "f", digits = 3)) %>% 
+  filter(pH_delta %in% predictions.RCP$pH) %>% filter(phylum=="Echinoderm") %>% dplyr::select(pH_delta,fit) %>% 
+  mutate(delta_echino=round(100*(fit-0.7621473), digits = 1))
+
+predict.test.df.df %>% 
+  #mutate(pH_delta = formatC(pH_delta, format = "f", digits = 3)) %>% 
+  filter(pH_delta %in% predictions.RCP$pH) %>% filter(phylum=="Mollusc") %>% dplyr::select(pH_delta,fit) %>% 
+  mutate(delta_moll=round(100*(fit-0.7559793), digits = 1))
+
+# The results match!!! 
 ```
 
 ### Figure caption: 
 
 Fertilization success (%) by experimental pH across marine taxa examined in this review. Meta-analysis was performed using a binomial regression model, and indicates that fertilization success decreases with pH across Crustacean (5 studies), Echinoderm (12 studies), and Mollusc (18 studies). Fertilization success was not significantly affected by pH in Cnidarian (4 studies). Each point reflects the average % fertilization reported by one study at an experimental pH. 
 
-### Generate single figure with all phyla 
+### Generate single figure with all phyla - no longer valid 
 
 ```{r}
-# Examine pH-experimental significance as predictor using X-squared test  
-Anova(best)
-
-#ggplotly(
-(gg.full <- ggplot() + 
-  geom_jitter(data=drop_na(data.fert, w), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), size=1.2, width=0.03) + #, col="gray40"
-  #facet_wrap(~phylum, scales="free") + 
-  theme_minimal() +
-  ggtitle(NULL) +
-    #ggtitle("A. Fertilization success ~ delta pH with model predictions (full pH range, all taxa)") + 
-  xlab("delta pH") + ylab("Proportion fertilization success") +
-  scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
-  theme_minimal() + 
-  #coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
-  geom_line(data = predict.test.df.df, aes(x=pH_delta, y=fit), col="gray70") + #, col=phylum
-  geom_ribbon(data = predict.test.df.df, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray70") + 
-    guides(colour = guide_legend(override.aes = list(size=4))) + 
-  theme(legend.text = element_text(size = 12), legend.position = "top",
-        legend.margin=margin(0,0,0,0),
-        legend.box.margin=margin(-8,-8,-8,-8)) + 
-    #theme(legend.position = "none") +
-  annotate(geom="text", x=-1.53, y=0.83, size=3.5, colour="gray40", label=paste("Full pH range: χ2 p-value =", round(Anova(best)[,"Pr(>Chisq)"], digits =4), sep=" "))) #add fill=phylum in geom_ribbon aes if color desired 
+# # Examine pH-experimental significance as predictor using X-squared test  
+# Anova(best)
+# 
+# ggplotly(
+# (gg.full <- ggplot() + 
+#   geom_jitter(data=drop_na(data.fert, w), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), size=1.2, width=0.03) + #, col="gray40"
+#   #facet_wrap(~phylum, scales="free") + 
+#   theme_minimal() +
+#   ggtitle(NULL) +
+#     #ggtitle("A. Fertilization success ~ delta pH with model predictions (full pH range, all taxa)") + 
+#   xlab("delta pH") + ylab("Proportion fertilization success") +
+#   scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
+#   theme_minimal() + 
+#   #coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+#   geom_line(data = predict.test.df.df, aes(x=pH_delta, y=fit), col="gray70") + #, col=phylum
+#   geom_ribbon(data = predict.test.df.df, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray70") + 
+#     guides(colour = guide_legend(override.aes = list(size=4))) + 
+#   theme(legend.text = element_text(size = 12), legend.position = "top",
+#         legend.margin=margin(0,0,0,0),
+#         legend.box.margin=margin(-8,-8,-8,-8)) + 
+#     #theme(legend.position = "none") +
+#   annotate(geom="text", x=-1.53, y=0.83, size=3.5, colour="gray40", label=paste("Full pH range: χ2 p-value =", round(Anova(best)[,"Pr(>Chisq)"], digits =6), sep=" ")))) #add fill=phylum in geom_ribbon aes if color desired 
 
 ```
 
-Using only pH values 7.6 and greater 
+Using only pH values 7.6 and greater - no longer valid 
 
 ```{r}
-Anova(best7.6)
-
-#ggplotly(
-(gg.7.6 <- ggplot() + 
-  geom_jitter(data=subset(drop_na(data.fert, w),p_h_experimental>=7.6), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), size=1.2, width=0.03) + #, col="gray40"
-  #facet_wrap(~phylum, scales="free") + 
-  theme_minimal() +
-  ggtitle(NULL) +
-    #ggtitle("A. Fertilization success ~ delta pH with model predictions (pH>7.6)") + 
-  xlab("delta pH") + ylab("Proportion fertilization success") +
-  scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
-  theme_minimal() + 
-    theme(legend.position = "none") +
-    #theme(legend.text = element_text(size = 12), legend.position = "top",
-    #    legend.margin=margin(0,0,0,0),
-    #    legend.box.margin=margin(-5,-5,-5,-5)) + 
-    #    guides(colour = guide_legend(override.aes = list(size=4))) + 
-    coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
-    geom_line(data = predict.test.df.df.7.6, aes(x=pH_delta, y=fit), col="gray70") + #, col=phylum
-  geom_ribbon(data = predict.test.df.df.7.6, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray70") +     annotate(geom="text", x=-.95, y=0.87, size=3.5, colour="gray40", label=paste("pH≥7.6: χ2 p-value =", round(Anova(best7.6)[,"Pr(>Chisq)"], digits =3), sep=" "))) #add fill=phylum in geom_ribbon aes if color desired 
+# Anova(best7.6)
+# 
+# #ggplotly(
+# (gg.7.6 <- ggplot() + 
+#   geom_jitter(data=subset(drop_na(data.fert, w),p_h_experimental>=7.6), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), size=1.2, width=0.03) + #, col="gray40"
+#   #facet_wrap(~phylum, scales="free") + 
+#   theme_minimal() +
+#   ggtitle(NULL) +
+#     #ggtitle("A. Fertilization success ~ delta pH with model predictions (pH>7.6)") + 
+#   xlab("delta pH") + ylab("Proportion fertilization success") +
+#   scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
+#   theme_minimal() + 
+#     theme(legend.position = "none") +
+#     #theme(legend.text = element_text(size = 12), legend.position = "top",
+#     #    legend.margin=margin(0,0,0,0),
+#     #    legend.box.margin=margin(-5,-5,-5,-5)) + 
+#     #    guides(colour = guide_legend(override.aes = list(size=4))) + 
+#     coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+#     geom_line(data = predict.test.df.df.7.6, aes(x=pH_delta, y=fit), col="gray70") + #, col=phylum
+#   geom_ribbon(data = predict.test.df.df.7.6, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray70") +     annotate(geom="text", x=-.95, y=0.87, size=3.5, colour="gray40", label=paste("pH≥7.6: χ2 p-value =", round(Anova(best7.6)[,"Pr(>Chisq)"], digits =3), sep=" "))) #add fill=phylum in geom_ribbon aes if color desired 
 ```
 ```{r}
-alltaxa.plots <- ggarrange(gg.full + ylab(NULL)+ xlab(NULL) + theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()), 
-        gg.7.6 + ylab(NULL), ncol=1, nrow=2)
-png(file = "fertilization-all-taxa-20210308.png", width = 600, height=500)
-annotate_figure(alltaxa.plots, left = text_grob("Proportion Fertilization Success", color = "gray20", rot = 90))
-dev.off()
+# alltaxa.plots <- ggarrange(gg.full + ylab(NULL)+ xlab(NULL) + theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()), 
+#         gg.7.6 + ylab(NULL), ncol=1, nrow=2)
+# png(file = "fertilization-all-taxa-20210308.png", width = 600, height=500)
+# annotate_figure(alltaxa.plots, left = text_grob("Proportion Fertilization Success", color = "gray20", rot = 90))
+# dev.off()
 ```
 
 ## Do both full and 7.6 plots one one
 
 ```{r}
-(gg.both <- ggplot() + 
-  geom_jitter(data=drop_na(data.fert, w), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), 
-              size=1.2, width=0.03) + #, col="gray40"
-  ggtitle("(a) All taxa") + 
-  xlab("delta pH") + ylab("Proportion fertilization success") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size=13, colour="gray15")) +
-  coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
-   scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
-  geom_ribbon(data = predict.test.df.df, 
-              aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
-              linetype=9, alpha=0.3, fill="#fff2ae") + 
-     geom_line(data = predict.test.df.df, aes(x=pH_delta, y=fit), 
-            col="gray30", linetype=2) + 
-  theme(legend.position = "none") +
-  #guides(colour = guide_legend(override.aes = list(size=4))) + 
-  geom_label(aes(x=-1.54, y=0.5), label=paste("Model with full pH range: χ2 p-value =",
-                       round(Anova(best)[,"Pr(>Chisq)"], digits =5), sep=" "),
-             colour="gray15", size=5, alpha=0.3, fill="#fff2ae") +
-   geom_ribbon(data = predict.test.df.df.7.6, 
-              aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
-              linetype=0, alpha=0.1, fill="#2ca25f") +
-   geom_line(data = predict.test.df.df.7.6, 
-                 aes(x=pH_delta, y=fit), 
-                 col="gray30", linetype=1) +
-   geom_label(aes(x=-1.2, y=0.84,
-            label=paste("Model with pH ≥7.6: χ2 p-value =", round(Anova(best7.6)[,"Pr(>Chisq)"], digits =3), sep=" ")), 
-            colour="gray15", alpha=0.1, fill="#2ca25f", size=5))
-
-tiff(file = "fertilization-all-taxa-20210510.tiff", width = 1500, height=1000, res=250)
-gg.both
-dev.off()
+# (gg.both <- ggplot() + 
+#   geom_jitter(data=drop_na(data.fert, w), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), 
+#               size=1.2, width=0.03) + #, col="gray40"
+#   ggtitle("(a) All taxa") + 
+#   xlab("delta pH") + ylab("Proportion fertilization success") +
+#   theme_minimal() +
+#   theme(plot.title = element_text(hjust = 0.5, size=13, colour="gray15")) +
+#   coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+#    scale_color_manual(name=NULL, values=c("#ca0020","#92c5de",'#0571b0')) +  #"#f4a582",
+#   geom_ribbon(data = predict.test.df.df, 
+#               aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+#               linetype=9, alpha=0.3, fill="#fff2ae") + 
+#      geom_line(data = predict.test.df.df, aes(x=pH_delta, y=fit), 
+#             col="gray30", linetype=2) + 
+#   theme(legend.position = "none") +
+#   #guides(colour = guide_legend(override.aes = list(size=4))) + 
+#   geom_label(aes(x=-1.54, y=0.5), label=paste("Model with full pH range:\nχ2 p-value =",
+#                        round(Anova(best)[,"Pr(>Chisq)"], digits =6), sep=" "),
+#              colour="gray15", size=5, alpha=0.3, fill="#fff2ae") +
+#    geom_ribbon(data = predict.test.df.df.7.6, 
+#               aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+#               linetype=0, alpha=0.1, fill="springgreen3") +
+#    geom_line(data = predict.test.df.df.7.6, 
+#                  aes(x=pH_delta, y=fit), 
+#                  col="gray30", linetype=1) +
+#    geom_label(aes(x=-1.2, y=0.84,
+#             label=paste("Model with pH ≥7.6:\nχ2 p-value =", round(Anova(best7.6)[,"Pr(>Chisq)"], digits =3), sep=" ")), 
+#             colour="gray15", alpha=0.1, fill="springgreen3", size=5))
+# 
+# tiff(file = "fertilization-all-taxa-20210510.tiff", width = 1500, height=1000, res=250)
+# gg.both
+# dev.off()
 
 ```
 
@@ -483,22 +840,21 @@ show_col(c("#ca0020","#f4a582","#92c5de",'#0571b0'))
 #0571b0 = mollusc
 ```
 
-### Generate figure: pH data by phylum, each with binomial regression model fit + CI 
+### Generate figure: pH data by phylum, each with beta regression model fit + CI 
 
 ```{r}
 ggplotly(
 ggplot() + 
   geom_jitter(data=drop_na(data.fert, w), aes(x=pH_delta, y=ave_fert_proport, group=phylum, col=phylum, label=study), size=1.2, width=0.03, col="gray40") +
   facet_wrap(~phylum, scales="free") + theme_minimal() +
-  ggtitle("Fertilization success ~ pH with binomial-regression model predictions") + 
+  ggtitle("Fertilization success ~ pH with beta-regression model predictions") + 
   xlab("Experimental pH") + ylab("Proportion fertilization success") +
   #scale_color_manual(name=NULL, values=c("#e41a1c","#ff7f00","#4daf4a",'#377eb8')) +
   theme_minimal() + 
   coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
-  geom_line(data = predict.test.df.df, aes(x=pH_delta, y=fit), col="gray50") + #, col=phylum
-  geom_ribbon(data = predict.test.df.df, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray50") + theme(legend.position = "none")) #add fill=phylum in geom_ribbon aes if color desired 
+  geom_line(data = predict.test.df.df, aes(x=pH_delta, y=predict), col="gray50") + #, col=phylum
+  geom_ribbon(data = predict.test.df.df, aes(x=pH_delta, ymin=predict-se.fit, ymax=fit+se.fit), linetype=2, alpha=0.1, col="gray50") + theme(legend.position = "none")) #add fill=phylum in geom_ribbon aes if color desired 
 ```
-
 
 ## Run GLMs on each phylum  and generate plots 
 
@@ -508,18 +864,31 @@ ggplot() +
 ### Cnidarian 
 
 ```{r}
-Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ insemination_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_per_m_l + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_egg_ratio + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ incubation_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
 
-# None significant, but still develop model for plot 
-model.cnidarian <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+# DETEREMINE BEST FIT MODEL WITH CANDIDATE PREDICTOR VARIABLES 
+AIC(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) # BEST FIT 
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)*pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l):pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)+pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+
+# Best fit is with pH_delta only 
+model.cnidarian <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 Anova(model.cnidarian)
 summary(model.cnidarian) 
+
+# Inspect residuals 
+aa5 <- augment(model.cnidarian, data=drop_na(data.fert, w) %>% filter(phylum=="Cnidarian"))
+ggplot(aa5, aes(x=.fitted,y=.resid)) + 
+    geom_point() + 
+  geom_smooth()
 
 # NOTE: THERE ARE NO CNIDARIAN STUDIES THAT USED PH < 7.6, SO ONLY HAVE ONE MODEL 
 
@@ -533,31 +902,57 @@ predict.cnidarian.df <- predict.cnidarian %>%
 (plot.cnidarian <- ggplot() + 
   geom_jitter(data=drop_na(data.fert, w) %>% 
                 filter(phylum=="Cnidarian"), aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#ca0020") +
-  ggtitle("(b) Cnidarian") + 
+  ggtitle("(c) Cnidarian") + 
   xlab(NULL) + ylab("Proportion fertilization success") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, size=13, colour="gray15")) +
   coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
-  geom_ribbon(data = predict.cnidarian.df, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit),linetype=0, alpha=0.1, fill="#2ca25f") + 
+  geom_ribbon(data = predict.cnidarian.df, aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit),linetype=0, alpha=0.1, fill="springgreen3") + 
   geom_line(data = predict.cnidarian.df, aes(x=pH_delta, y=fit), col="gray30", linetype=1) +
   geom_label(aes(x=-.8, y=0.83,
             label=paste("χ2 p-value =", round(Anova(model.cnidarian)[,"Pr(>Chisq)"], digits = 3), sep=" ")),
-            colour="gray15", alpha=0.1, size=5, fill="#2ca25f", size=3))
+            colour="gray15", alpha=0.1, size=5, fill="springgreen3", size=3)) #+
+#    annotate(geom = "table",
+#           x = -1.9,
+#           y = .1,
+#           label = list(my_data)))
+
 
 ```
+
+```{r}
+(plot.cnidarian <- ggplot() + 
+  geom_jitter(data=drop_na(data.fert, w) %>% 
+                filter(phylum=="Cnidarian"), aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#ca0020") +
+  ggtitle("(a) Cnidarian") + 
+  xlab(NULL) + ylab("Proportion fertilization success") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size=15, colour="gray15"), panel.grid.minor = element_blank()) +
+  coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+  geom_ribbon(data = predict.test.df.df %>% filter(phylum=="Cnidarian"), 
+              aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit),linetype=0, alpha=0.3, fill="gray70") + 
+  geom_line(data = predict.test.df.df %>% filter(phylum=="Cnidarian"), aes(x=pH_delta, y=fit), col="gray30", linetype=1) +
+  geom_label(aes(x=-.8, y=0.83,
+            label=paste("z-score = ", round(best.coef[best.coef$term=="phylumCnidarian:pH_delta","statistic"], digits = 2), 
+                        "\np =", round(best.coef[best.coef$term=="phylumCnidarian:pH_delta","p.value"], digits = 2), sep=" ")),
+            colour="gray25", alpha=0.3,  fill=NA, size=4, label.size = NA))
+```
+
+
 ### Echinoderm
 
 ```{r}
-Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #yes
-Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ insemination_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_per_m_l + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_egg_ratio + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #yes
+Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ incubation_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ taxonomic_group + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
 
 # Echino model, all pH data
-model.echinoderm <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+model.echinoderm <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 Anova(model.echinoderm)
 summary(model.echinoderm)
 
@@ -567,7 +962,7 @@ predict.echinoderm.df <- predict.echinoderm %>%
   cbind(subset(new.data, phylum=="Echinoderm"))
 
 # Echino model, pH 7.6 and greater 
-model.echinoderm7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6) %>% filter(phylum=="Echinoderm"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+model.echinoderm7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6) %>% filter(phylum=="Echinoderm"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 Anova(model.echinoderm7.6)
 summary(model.echinoderm7.6)
 
@@ -576,11 +971,21 @@ predict.echinoderm.df7.6 <- predict.echinoderm7.6 %>%
   as.data.frame() %>%
   cbind(subset(new.data.7.6, phylum=="Echinoderm"))
 
+# Inspect residuals 
+aa5 <- augment(model.echinoderm, data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm"))
+ggplot(aa5, aes(x=.fitted,y=.resid)) + 
+    geom_point() + 
+  geom_smooth()
+
+aa5.7.6 <- augment(model.echinoderm7.6, data=drop_na(data.fert, w) %>% filter(phylum=="Echinoderm") %>% filter(p_h_experimental>=7.6))
+ggplot(aa5.7.6, aes(x=.fitted,y=.resid)) + 
+    geom_point() + 
+  geom_smooth()
 
 (plot.echino <- ggplot() + 
   geom_jitter(data=drop_na(data.fert, w) %>% 
                 filter(phylum=="Echinoderm"), aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#92c5de") +
-  ggtitle("(c) Echinoderm") + 
+  ggtitle("(d) Echinoderm") + 
   xlab("Delta pH") + ylab("Proportion fertilization success") +
   theme_minimal() + 
   coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
@@ -591,18 +996,18 @@ geom_ribbon(data = predict.echinoderm.df,
      geom_line(data = predict.echinoderm.df, aes(x=pH_delta, y=fit), 
             col="gray30", linetype=2) + 
     theme(legend.position = "none") +
-  geom_label(aes(x=-1.4, y=0.29), label=paste("Model with full pH range: χ2 p-value =",
-                       round(Anova(model.echinoderm)[,"Pr(>Chisq)"], digits =4), sep=" "),
+  geom_label(aes(x=-1.4, y=0.29), label=paste("Model with full pH range:\nχ2 p-value =",
+                       round(Anova(model.echinoderm)[,"Pr(>Chisq)"], digits =6), sep=" "),
              colour="gray15", size=5, alpha=0.3, fill="#fff2ae") +
    geom_ribbon(data = predict.echinoderm.df7.6, 
               aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
-              linetype=0, alpha=0.1, fill="#2ca25f") +
+              linetype=0, alpha=0.1, fill="springgreen3") +
    geom_line(data = predict.echinoderm.df7.6, 
                  aes(x=pH_delta, y=fit), 
                  col="gray30", linetype=1) +
    geom_label(aes(x=-1.2, y=0.8,
-            label=paste("Model with pH ≥7.6: χ2 p-value =", round(Anova(model.echinoderm7.6)[,"Pr(>Chisq)"], digits =3), sep=" ")), 
-            colour="gray15", size=5, alpha=0.1, fill="#2ca25f"))
+            label=paste("Model with pH ≥7.6:\nχ2 p-value =", round(Anova(model.echinoderm7.6)[,"Pr(>Chisq)"], digits =4), sep=" ")), 
+            colour="gray15", size=5, alpha=0.1, fill="springgreen3"))
 
 
   # geom_line(data = predict.echinoderm.df, aes(x=pH_delta, y=fit), col="#92c5de") +
@@ -612,18 +1017,58 @@ geom_ribbon(data = predict.echinoderm.df,
 
 ```
 
+```{r}
+(plot.echino <- ggplot() + 
+  geom_jitter(data=drop_na(data.fert, w) %>% 
+                filter(phylum=="Echinoderm"), 
+              aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#92c5de") +
+  ggtitle("(b) Echinoderm") + 
+  xlab("Delta pH") + ylab("Proportion fertilization success") +
+  theme_minimal() + 
+  coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+  theme(plot.title = element_text(hjust = 0.5, size=15, colour="gray15"), panel.grid.minor = element_blank()) +
+geom_ribbon(data = predict.test.df.df %>% filter(phylum=="Echinoderm"), 
+              aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+              linetype=9, alpha=0.3, fill="gray70") + 
+     geom_line(data = predict.test.df.df %>% filter(phylum=="Echinoderm"), aes(x=pH_delta, y=fit), 
+            col="gray30", linetype=1) + 
+    theme(legend.position = "none") +
+  geom_label(aes(x=-1.6, y=0.4), label=paste("z-score =", round(best.coef[best.coef$term=="phylumEchinoderm:pH_delta","statistic"], digits =2),
+    "\np =", round(best.coef[best.coef$term=="phylumEchinoderm:pH_delta","p.value"], digits =9), sep=" "),
+            colour="gray25", alpha=0.3,  fill=NA, size=4, label.size = NA))
+   # geom_ribbon(data = predict.test.df.df.7.6 %>% filter(phylum=="Echinoderm"), 
+   #            aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+   #            linetype=0, alpha=0.1, fill="springgreen3") +
+   # geom_line(data = predict.test.df.df.7.6 %>% filter(phylum=="Echinoderm"),
+   #               aes(x=pH_delta, y=fit), 
+   #               col="gray30", linetype=1) +
+   # geom_label(aes(x=-1.2, y=0.8,
+   #          label=paste("Model with pH ≥7.6:\np-value =", round(best7.6.coef[best7.6.coef$term=="phylumEchinoderm:pH_delta","p.value"], digits =3), sep=" ")), 
+   #          colour="gray15", size=5, alpha=0.1, fill="springgreen3")
+  #)
+```
+
 ### Mollusc  
 
 ```{r}
-Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ insemination_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_per_m_l + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ sperm_egg_ratio + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #yes (but close!)
+Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ incubation_time + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_females + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ number_males + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+Anova(glmmTMB(ave_fert_proport ~ taxonomic_group + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
 
-model.mollusc <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio)*pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)*pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(sperm_per_m_l) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(number_females)*pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+AIC(glmmTMB(ave_fert_proport ~ log(number_females) + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+
+model.mollusc <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 Anova(model.mollusc)
 summary(model.mollusc) 
 
@@ -633,7 +1078,7 @@ predict.mollusc.df <- predict.mollusc %>%
   cbind(subset(new.data, phylum=="Mollusc"))
 
 # Model with values 7.6 and greater 
-model.mollusc7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6) %>% filter(phylum=="Mollusc"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+model.mollusc7.6 <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.6) %>% filter(phylum=="Mollusc"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 Anova(model.mollusc7.6)
 summary(model.mollusc7.6) 
 
@@ -642,12 +1087,24 @@ predict.mollusc.df7.6 <- predict.mollusc7.6 %>%
   as.data.frame() %>%
   cbind(subset(new.data.7.6, phylum=="Mollusc"))
 
+# Inspect residuals 
+aa5 <- augment(model.mollusc, data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc"))
+ggplot(aa5, aes(x=.fitted,y=.resid)) + 
+    geom_point() + 
+  geom_smooth()
+
+aa5.7.6 <- augment(model.mollusc7.6, data=drop_na(data.fert, w) %>% filter(phylum=="Mollusc") %>% filter(p_h_experimental>=7.6))
+ggplot(aa5.7.6, aes(x=.fitted,y=.resid)) + 
+    geom_point() + 
+  geom_smooth()
+
+
 (plot.mollusc <- 
 ggplot() + 
   geom_jitter(data=drop_na(data.fert, w) %>% 
                 filter(phylum=="Mollusc"), aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#0571b0") +
-  ggtitle("(d) Mollusc") + 
-  xlab("Delta pH") + ylab(NULL) +
+  ggtitle("(e) Mollusc") + 
+  xlab("Delta pH") + ylab("Proportion fertilization success") + #ylab(NULL) +
   theme_minimal() + 
   theme(plot.title = element_text(hjust = 0.5, size=13, colour="gray15")) +
   coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
@@ -658,28 +1115,76 @@ ggplot() +
      geom_line(data = predict.mollusc.df, aes(x=pH_delta, y=fit), 
             col="gray30", linetype=2) + 
     theme(legend.position = "none") +
-  geom_label(aes(x=-1.3, y=0.4), label=paste("Model with full pH range: χ2 p-value =",
-                       round(Anova(model.mollusc)[,"Pr(>Chisq)"], digits =3), sep=" "),
+  geom_label(aes(x=-1.3, y=0.4), label=paste("Model with full pH range:\nχ2 p-value =",
+                       round(Anova(model.mollusc)[,"Pr(>Chisq)"], digits =4), sep=" "),
              colour="gray15", size=5, alpha=0.3, fill="#fff2ae") +
    geom_ribbon(data = predict.mollusc.df7.6, 
               aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
-              linetype=0, alpha=0.1, fill="#2ca25f") +
+              linetype=0, alpha=0.1, fill="springgreen3") +
    geom_line(data = predict.mollusc.df7.6, 
                  aes(x=pH_delta, y=fit), 
                  col="gray30", linetype=1) +
    geom_label(aes(x=-1.1, y=0.9,
-            label=paste("Model with pH ≥7.6: χ2 p-value =", round(Anova(model.mollusc7.6)[,"Pr(>Chisq)"], digits =3), sep=" ")), 
-            colour="gray15", alpha=0.1, fill="#2ca25f", size=5))
+            label=paste("Model with pH ≥7.6:\nχ2 p-value =", round(Anova(model.mollusc7.6)[,"Pr(>Chisq)"], digits =2), sep=" ")), 
+            colour="gray15", alpha=0.1, fill="springgreen3", size=5))
+
 ```
 
 ```{r}
-(all.plots <- ggarrange(gg.both + ylab(NULL) + xlab(NULL)+ guides(colour = guide_legend(override.aes = list(size=6))), 
-                       plot.cnidarian + ylab(NULL) + xlab(NULL),  
+(plot.mollusc <- 
+ggplot() + 
+  geom_jitter(data=drop_na(data.fert, w) %>% 
+                filter(phylum=="Mollusc"), aes(x=pH_delta, y=ave_fert_proport), size=1.2, width=0.03, col="#0571b0") +
+  ggtitle("(c) Mollusc") + 
+  xlab("Delta pH") + ylab("Proportion fertilization success") + #ylab(NULL) +
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5, size=15, colour="gray15"), panel.grid.minor = element_blank()) +
+  coord_cartesian(ylim = c(0, 1), xlim =c(-2,0)) +
+
+  geom_ribbon(data = predict.test.df.df %>% filter(phylum=="Mollusc"), 
+              aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+              linetype=9, alpha=0.3, fill="gray70") + 
+     geom_line(data = predict.test.df.df %>% filter(phylum=="Mollusc"), aes(x=pH_delta, y=fit), 
+            col="gray30", linetype=1) + 
+    theme(legend.position = "none") +
+  geom_label(aes(x=-1.3, y=0.4), label=paste("z-score =", round(best.coef[best.coef$term=="phylumMollusc:pH_delta","statistic"], digits =2),
+    "\np =", round(best.coef[best.coef$term=="phylumMollusc:pH_delta","p.value"], digits =2),sep=" "),
+            colour="gray25", alpha=0.3,  fill=NA, size=4, label.size = NA))
+# geom_ribbon(data = predict.test.df.df.7.6 %>% filter(phylum=="Mollusc"), 
+   #            aes(x=pH_delta, ymin=fit-se.fit, ymax=fit+se.fit), 
+   #            linetype=0, alpha=0.1, fill="springgreen3") +
+   # geom_line(data = predict.test.df.df.7.6 %>% filter(phylum=="Mollusc"), 
+   #               aes(x=pH_delta, y=fit), 
+   #               col="gray30", linetype=1) +
+   # geom_label(aes(x=-1.1, y=0.9,
+   #          label=paste("Model with pH ≥7.6:\np-value =", round(best7.6.coef[best7.6.coef$term=="phylumMollusc:pH_delta","p.value"], digits =2), sep=" ")), 
+   #          colour="gray15", alpha=0.1, fill="springgreen3", size=5)
+  #)
+```
+
+
+```{r}
+#gg.both + ylab(NULL) + xlab(NULL)+ guides(colour = guide_legend(override.aes = list(size=6))), 
+(all.plots <- ggarrange(
+                      plot.cnidarian + ylab(NULL) + xlab(NULL),
                        plot.echino + ylab(NULL) + xlab(NULL), 
-                       plot.mollusc, ncol=1, nrow=4,
+                       plot.mollusc + ylab(NULL) + xlab(NULL),  
+                       ncol=2, nrow=2,
                        common.legend = TRUE, legend="top"))
 #all.plots <- ggarrange(plot.cnidarian + ylab(NULL),  plot.echino + ylab(NULL), plot.mollusc + rremove("y.text"), ncol=1, nrow=3)
-tiff(file = "fertilization-all-figures-20210308.tiff", width=2200, height=4500, res=250)
+tiff(file = "fertilization-all-figures-20210308.tiff", width=3000, height=2000, res=250)
+annotate_figure(all.plots, left = text_grob("Proportion Fertilization Success", color = "gray15", rot = 90))
+dev.off()
+
+png(file = "fertilization-all-figures-20210308.png", width=3000, height=2000, res=2500)
+annotate_figure(all.plots, left = text_grob("Proportion Fertilization Success", color = "gray15", rot = 90))
+dev.off()
+
+jpeg(file = "fertilization-all-figures-20210308.jpeg", width=4000, height=3000, res=400)
+annotate_figure(all.plots, left = text_grob("Proportion Fertilization Success", color = "gray15", rot = 90))
+dev.off()
+
+pdf(file = "fertilization-all-figures-20210308.pdf", width=12, height=8)
 annotate_figure(all.plots, left = text_grob("Proportion Fertilization Success", color = "gray15", rot = 90))
 dev.off()
 
@@ -691,11 +1196,11 @@ dev.off()
 ### Crustacean  (BONEYARD, not using for now)
 
 ```{r}
-# Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-# Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
-# Anova(glmmTMB(ave_fert_proport ~ insemination_time + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+# Anova(glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+# Anova(glmmTMB(ave_fert_proport ~ p_h_control + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
+# Anova(glmmTMB(ave_fert_proport ~ incubation_time + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no
 # 
-# model.crustacean <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), binomial(link = "logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
+# model.crustacean <- glmmTMB(ave_fert_proport ~ pH_delta + (1|study), data=subset(drop_na(data.fert, w), p_h_experimental>=7.0) %>% filter(phylum=="Crustacean"), beta_family(link="logit"), na.action=na.exclude,  weights = 1/(w+1)^2)
 # Anova(model.crustacean)
 # summary(model.crustacean) 
 # 
@@ -724,13 +1229,13 @@ dev.off()
 
 ```{r}
 data.fert <- data.fert %>%
-  mutate_at(vars(number_trials_p_h, insemination_time, sperm_per_m_l, sperm_egg_ratio, number_females, number_males), as.numeric) 
+  mutate_at(vars(number_trials_p_h, incubation_time, sperm_per_m_l, sperm_egg_ratio, number_females, number_males), as.numeric) 
 ```
 
 ### Test Control pH
 
 ```{r}
-car::Anova(covariates1 <- glmmTMB(ave_fert_proport ~ p_h_control*pH_delta, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no interaction 
+car::Anova(covariates1 <- glmmTMB(ave_fert_proport ~ p_h_control*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no interaction 
 ggplotly(
   ggplot(data.fert, aes(x=p_h_control, y=ave_fert_proport)) + 
     geom_jitter(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + ggtitle("% Fertilization ~ Control pH\nsign. interaction") + 
@@ -741,10 +1246,10 @@ ggplotly(
 ### Test Insemination time 
 
 ```{r}
-car::Anova(covariates2 <- glmmTMB(ave_fert_proport ~  insemination_time*p_h_experimental, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no interaction  
+car::Anova(covariates2 <- glmmTMB(ave_fert_proport ~  incubation_time*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #no interaction  
 ggplotly(
-  ggplot(data.fert, aes(x=insemination_time, y=ave_fert_proport)) + 
-    geom_point(aes(color = p_h_experimental, label=common_name), size=2.2, pch=19) + ggtitle("% Fertilization ~ Insemination Time\nsign. interaction_") + 
+  ggplot(data.fert, aes(x=incubation_time, y=ave_fert_proport)) + 
+    geom_point(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + ggtitle("% Fertilization ~ Insemination Time\nsign. interaction_") + 
     scale_color_gradientn(colours = rainbow(5))) 
 #    scale_color_gradient(low = "red", high = "blue"))
 ```
@@ -752,9 +1257,9 @@ ggplotly(
 ### Test sperm concentration 
 
 ```{r}
-car::Anova(covariates3 <- glmmTMB(ave_fert_proport ~ sperm_per_m_l*p_h_experimental, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign 
-ggplotly(ggplot(data.fert, aes(x=sperm_per_m_l, y=ave_fert_proport)) + 
-           geom_point(aes(color = p_h_experimental, label=common_name), size=2.2, pch=19) + 
+car::Anova(covariates3 <- glmmTMB(ave_fert_proport ~ log(sperm_per_m_l)*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign 
+ggplotly(ggplot(data.fert, aes(x=log(sperm_per_m_l), y=ave_fert_proport)) + 
+           geom_point(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + 
            ggtitle("% Fertilization ~ Sperm Concentration\nnot sign.") + 
           scale_color_gradientn(colours = rainbow(5))) 
 #           scale_color_gradient(low = "red", high = "blue"))
@@ -763,9 +1268,9 @@ ggplotly(ggplot(data.fert, aes(x=sperm_per_m_l, y=ave_fert_proport)) +
 ### Test sperm:egg ratio 
 
 ```{r}
-car::Anova(covariates4 <- glmmTMB(ave_fert_proport ~ sperm_egg_ratio*p_h_experimental, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign 
-ggplotly(ggplot(data.fert, aes(x=sperm_egg_ratio, y=ave_fert_proport)) + 
-           geom_point(aes(color = p_h_experimental, label=common_name), size=2.2, pch=19) + 
+car::Anova(covariates4 <- glmmTMB(ave_fert_proport ~ log(sperm_egg_ratio)*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign 
+ggplotly(ggplot(data.fert, aes(x=log(sperm_egg_ratio), y=ave_fert_proport)) + 
+           geom_point(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + 
            ggtitle("% Fertilization ~ Sperm:Egg Ratio\nnot sign.") + 
     scale_color_gradientn(colours = rainbow(5))) 
 #           scale_color_gradient(low = "red", high = "blue"))
@@ -774,9 +1279,9 @@ ggplotly(ggplot(data.fert, aes(x=sperm_egg_ratio, y=ave_fert_proport)) +
 ### Test no. females used for experimental eggs 
 
 ```{r}
-car::Anova(covariates5 <- glmmTMB(ave_fert_proport ~  number_females*p_h_experimental, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign.
+car::Anova(covariates5 <- glmmTMB(ave_fert_proport ~  number_females*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign.
 ggplotly(ggplot(data.fert, aes(x=number_females, y=ave_fert_proport)) + 
-           geom_point(aes(color = p_h_experimental, label=common_name), size=2.2, pch=19) + 
+           geom_point(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + 
            ggtitle("% Fertilization ~ No. Females\nno interaction") + 
     scale_color_gradientn(colours = rainbow(5))) 
 #           scale_color_gradient(low = "red", high = "blue"))
@@ -785,9 +1290,9 @@ ggplotly(ggplot(data.fert, aes(x=number_females, y=ave_fert_proport)) +
 ### Test no. males used for experimental eggs 
 
 ```{r}
-car::Anova(covariates6 <- glmmTMB(ave_fert_proport ~  number_males*p_h_experimental, data=drop_na(data.fert, w), binomial(link = "logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign. 
+car::Anova(covariates6 <- glmmTMB(ave_fert_proport ~  number_males*pH_delta, data=drop_na(data.fert, w), beta_family(link="logit"), na.action=na.exclude, weights = 1/(w+1)^2)) #not sign. 
 ggplotly(ggplot(data.fert, aes(x=number_males, y=ave_fert_proport)) + 
-           geom_point(aes(color = p_h_experimental, label=common_name), size=2.2, pch=19) + 
+           geom_point(aes(color = pH_delta, label=common_name), size=2.2, pch=19) + 
            ggtitle("% Fertilization ~ No. Males\nsign. interaction") + 
      scale_color_gradientn(colours = rainbow(5))) 
 #          scale_color_gradient(low = "red", high = "blue"))
