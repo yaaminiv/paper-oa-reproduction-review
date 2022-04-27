@@ -85,6 +85,17 @@ head(allMetadata) #Confirm formatting
 
 # Reproduction category
 
+## Count the number of fertilization studies
+
+```{r}
+fertilizationMetadata <- allMetadata %>%
+  filter(., category == "Fertilization") %>%
+  select(., !c(effect, taxa)) %>%
+  distinct(.) #Get fertilization data, remove effect and taxa information, keep distinct rows
+nrow(fertilizationMetadata) #92 fertilization studies
+```
+
+
 ## Format data
 
 ```{r}
